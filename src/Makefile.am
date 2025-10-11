@@ -36,8 +36,8 @@ LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
 
-WALLET_TOOL_BIN=zcashd-wallet-tool$(EXEEXT)
-WALLET_TOOL_BUILD=$(top_builddir)/target/$(RUST_TARGET)/release/zcashd-wallet-tool$(EXEEXT)
+WALLET_TOOL_BIN=junod-wallet-tool$(EXEEXT)
+WALLET_TOOL_BUILD=$(top_builddir)/target/$(RUST_TARGET)/release/junod-wallet-tool$(EXEEXT)
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
@@ -199,11 +199,11 @@ TESTS =
 BENCHMARKS =
 
 if BUILD_BITCOIND
-  bin_PROGRAMS += zcashd
+  bin_PROGRAMS += junod
 endif
 
 if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += zcash-cli zcash-tx
+  bin_PROGRAMS += juno-cli juno-tx
   bin_SCRIPTS += $(WALLET_TOOL_BIN)
 endif
 
@@ -434,7 +434,6 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/orchard.cpp \
   wallet/paymentdisclosure.cpp \
   wallet/paymentdisclosuredb.cpp \
-  wallet/rpcdisclosure.cpp \
   wallet/rpcdump.cpp \
   wallet/rpcwallet.cpp \
   wallet/wallet.cpp \
@@ -445,6 +444,7 @@ libbitcoin_wallet_a_SOURCES = \
 # crypto primitives library
 crypto_libbitcoin_crypto_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_CONFIG_INCLUDES)
 crypto_libbitcoin_crypto_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libbitcoin_crypto_a_LIBADD = crypto/randomx/jit_compiler_x86_static.o
 crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/aes.cpp \
   crypto/aes.h \
@@ -458,6 +458,65 @@ crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/hmac_sha256.h \
   crypto/hmac_sha512.cpp \
   crypto/hmac_sha512.h \
+  crypto/randomx_wrapper.cpp \
+  crypto/randomx_wrapper.h \
+  crypto/randomx/aes_hash.cpp \
+  crypto/randomx/aes_hash.hpp \
+  crypto/randomx/allocator.cpp \
+  crypto/randomx/allocator.hpp \
+  crypto/randomx/argon2_avx2.c \
+  crypto/randomx/argon2_core.c \
+  crypto/randomx/argon2_core.h \
+  crypto/randomx/argon2.h \
+  crypto/randomx/argon2_ref.c \
+  crypto/randomx/argon2_ssse3.c \
+  crypto/randomx/assembly_generator_x86.cpp \
+  crypto/randomx/assembly_generator_x86.hpp \
+  crypto/randomx/blake2/blake2-impl.h \
+  crypto/randomx/blake2/blake2.h \
+  crypto/randomx/blake2/blake2b.c \
+  crypto/randomx/blake2_generator.cpp \
+  crypto/randomx/blake2_generator.hpp \
+  crypto/randomx/bytecode_machine.cpp \
+  crypto/randomx/bytecode_machine.hpp \
+  crypto/randomx/common.hpp \
+  crypto/randomx/configuration.h \
+  crypto/randomx/cpu.cpp \
+  crypto/randomx/cpu.hpp \
+  crypto/randomx/dataset.cpp \
+  crypto/randomx/dataset.hpp \
+  crypto/randomx/instruction.cpp \
+  crypto/randomx/instruction.hpp \
+  crypto/randomx/instruction_weights.hpp \
+  crypto/randomx/instructions_portable.cpp \
+  crypto/randomx/intrin_portable.h \
+  crypto/randomx/jit_compiler.hpp \
+  crypto/randomx/jit_compiler_fallback.hpp \
+  crypto/randomx/jit_compiler_x86.cpp \
+  crypto/randomx/jit_compiler_x86.hpp \
+  crypto/randomx/jit_compiler_x86_static.hpp \
+  crypto/randomx/program.hpp \
+  crypto/randomx/randomx.cpp \
+  crypto/randomx/randomx.h \
+  crypto/randomx/reciprocal.c \
+  crypto/randomx/reciprocal.h \
+  crypto/randomx/soft_aes.cpp \
+  crypto/randomx/soft_aes.h \
+  crypto/randomx/superscalar.cpp \
+  crypto/randomx/superscalar.hpp \
+  crypto/randomx/superscalar_program.hpp \
+  crypto/randomx/virtual_machine.cpp \
+  crypto/randomx/virtual_machine.hpp \
+  crypto/randomx/virtual_memory.c \
+  crypto/randomx/virtual_memory.h \
+  crypto/randomx/vm_compiled.cpp \
+  crypto/randomx/vm_compiled.hpp \
+  crypto/randomx/vm_compiled_light.cpp \
+  crypto/randomx/vm_compiled_light.hpp \
+  crypto/randomx/vm_interpreted.cpp \
+  crypto/randomx/vm_interpreted.hpp \
+  crypto/randomx/vm_interpreted_light.cpp \
+  crypto/randomx/vm_interpreted_light.hpp \
   crypto/ripemd160.cpp \
   crypto/ripemd160.h \
   crypto/sha1.cpp \
@@ -625,16 +684,16 @@ nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # bitcoind binary #
-zcashd_SOURCES = bitcoind.cpp
-zcashd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-zcashd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-zcashd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+junod_SOURCES = bitcoind.cpp
+junod_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+junod_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+junod_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-zcashd_SOURCES += bitcoind-res.rc
+junod_SOURCES += bitcoind-res.rc
 endif
 
-zcashd_LDADD = \
+junod_LDADD = \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_WALLET) \
   $(LIBBITCOIN_COMMON) \
@@ -652,7 +711,7 @@ zcashd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-zcashd_LDADD += \
+junod_LDADD += \
   $(BOOST_LIBS) \
   $(BDB_LIBS) \
   $(EVENT_PTHREADS_LIBS) \
@@ -661,16 +720,16 @@ zcashd_LDADD += \
   $(LIBZCASH_LIBS)
 
 # bitcoin-cli binary #
-zcash_cli_SOURCES = bitcoin-cli.cpp
-zcash_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
-zcash_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-zcash_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+juno_cli_SOURCES = bitcoin-cli.cpp
+juno_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
+juno_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+juno_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-zcash_cli_SOURCES += bitcoin-cli-res.rc
+juno_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-zcash_cli_LDADD = \
+juno_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
@@ -684,18 +743,18 @@ zcash_cli_LDADD = \
   $(LIBZCASH_LIBS)
 #
 
-# zcash-tx binary #
-zcash_tx_SOURCES = bitcoin-tx.cpp
-zcash_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-zcash_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-zcash_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+# juno-tx binary #
+juno_tx_SOURCES = bitcoin-tx.cpp
+juno_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+juno_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+juno_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-zcash_tx_SOURCES += bitcoin-tx-res.rc
+juno_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
-# FIXME: Is libzcash needed for zcash_tx?
-zcash_tx_LDADD = \
+# FIXME: Is libzcash needed for juno_tx?
+juno_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
@@ -708,7 +767,7 @@ zcash_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH_LIBS)
 
-zcash_tx_LDADD += $(BOOST_LIBS)
+juno_tx_LDADD += $(BOOST_LIBS)
 #
 
 # zcash protocol primitives #
@@ -763,7 +822,11 @@ CTAES_DIST += crypto/ctaes/test.c
 
 BUILT_SOURCES = $(CXXBRIDGE_H)
 
-CLEANFILES = *.gcda *.gcno */*.gcno wallet/*/*.gcno $(bin_SCRIPTS)
+# RandomX assembly file compilation
+crypto/randomx/jit_compiler_x86_static.o: crypto/randomx/jit_compiler_x86_static.S
+	$(AM_V_GEN)$(CC) -c -o $@ $<
+
+CLEANFILES = *.gcda *.gcno */*.gcno wallet/*/*.gcno $(bin_SCRIPTS) crypto/randomx/jit_compiler_x86_static.o
 
 DISTCLEANFILES = obj/build.h
 

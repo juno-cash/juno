@@ -2,13 +2,13 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
-TESTS += zcash-gtest
-noinst_PROGRAMS += zcash-gtest
+TESTS += juno-gtest
+noinst_PROGRAMS += juno-gtest
 
 # tool for generating our public parameters.
 # test_checktransaction.cpp MUST be before
 # any test that calls SelectParams().
-zcash_gtest_SOURCES = \
+juno_gtest_SOURCES = \
 	gtest/main.cpp \
 	gtest/utils.cpp \
 	gtest/utils.h \
@@ -40,6 +40,8 @@ zcash_gtest_SOURCES = \
 	gtest/test_miner.cpp \
 	gtest/test_pedersen_hash.cpp \
 	gtest/test_pow.cpp \
+	gtest/test_randomx_epochs.cpp \
+	gtest/test_randomx_verification.cpp \
 	gtest/test_random.cpp \
 	gtest/test_rpc.cpp \
 	gtest/test_sapling_note.cpp \
@@ -56,7 +58,7 @@ zcash_gtest_SOURCES = \
 	gtest/test_zip32.cpp \
 	gtest/test_coins.cpp
 if ENABLE_WALLET
-zcash_gtest_SOURCES += \
+juno_gtest_SOURCES += \
 	wallet/gtest/test_wallet_zkeys.cpp \
 	wallet/gtest/test_orchard_zkeys.cpp \
 	wallet/gtest/test_note_selection.cpp \
@@ -66,10 +68,10 @@ zcash_gtest_SOURCES += \
 	wallet/gtest/test_rpc_wallet.cpp
 endif
 
-zcash_gtest_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-zcash_gtest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+juno_gtest_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+juno_gtest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
-zcash_gtest_LDADD = \
+juno_gtest_LDADD = \
   -lgtest -lgmock \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_CLI) \
@@ -88,7 +90,7 @@ zcash_gtest_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-zcash_gtest_LDADD += \
+juno_gtest_LDADD += \
   $(LIBZCASH_SCRIPT) \
   $(BOOST_LIBS) \
   $(BOOST_UNIT_TEST_FRAMEWORK_LIB) \
@@ -100,10 +102,10 @@ zcash_gtest_LDADD += \
   $(LIBZCASH) \
   $(LIBZCASH_LIBS)
 
-zcash_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+juno_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 
-zcash-gtest_check: zcash-gtest FORCE
-	./zcash-gtest
+juno-gtest_check: juno-gtest FORCE
+	./juno-gtest
 
-zcash-gtest-expected-failures: zcash-gtest FORCE
-	./zcash-gtest --gtest_filter=*DISABLED_* --gtest_also_run_disabled_tests
+juno-gtest-expected-failures: juno-gtest FORCE
+	./juno-gtest --gtest_filter=*DISABLED_* --gtest_also_run_disabled_tests
