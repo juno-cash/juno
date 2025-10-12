@@ -31,7 +31,7 @@ path = "src/rust/src/lib.rs"
 crate-type = ["staticlib"]
 
 [[bin]]
-name = "zcashd-wallet-tool"
+name = "junod-wallet-tool"
 path = "src/rust/bin/wallet_tool.rs"
 
 [dependencies]
@@ -117,3 +117,6 @@ features = ["ansi", "env-filter", "fmt", "time"]
 lto = 'thin'
 panic = 'abort'
 codegen-units = 1
+
+[patch.crates-io]
+zcash_protocol = { path = "depends/patches/zcash_protocol" }
