@@ -291,13 +291,13 @@ public:
  */
 const FeatureSet<ConsensusFeature, Params> Features({});
 
-/** ZIP208 block target interval in seconds. */
-static const unsigned int PRE_BLOSSOM_POW_TARGET_SPACING = 150;
-static const unsigned int POST_BLOSSOM_POW_TARGET_SPACING = 75;
-static_assert(PRE_BLOSSOM_POW_TARGET_SPACING > POST_BLOSSOM_POW_TARGET_SPACING, "Blossom target spacing must be less than pre-Blossom target spacing.");
-static_assert(PRE_BLOSSOM_POW_TARGET_SPACING % POST_BLOSSOM_POW_TARGET_SPACING == 0, "Blossom target spacing must exactly divide pre-Blossom target spacing.");
+/** Block target interval in seconds - changed to 60s for this fork. */
+static const unsigned int PRE_BLOSSOM_POW_TARGET_SPACING = 60;
+static const unsigned int POST_BLOSSOM_POW_TARGET_SPACING = 60;
+static_assert(PRE_BLOSSOM_POW_TARGET_SPACING >= POST_BLOSSOM_POW_TARGET_SPACING, "Block spacing must be consistent.");
 
-static const int BLOSSOM_POW_TARGET_SPACING_RATIO = PRE_BLOSSOM_POW_TARGET_SPACING / POST_BLOSSOM_POW_TARGET_SPACING;
+// For this fork, block spacing is constant at 60s, so ratio is 1
+static const int BLOSSOM_POW_TARGET_SPACING_RATIO = 1;
 static_assert(BLOSSOM_POW_TARGET_SPACING_RATIO * POST_BLOSSOM_POW_TARGET_SPACING == PRE_BLOSSOM_POW_TARGET_SPACING, "Invalid BLOSSOM_POW_TARGET_SPACING_RATIO");
 
 static const unsigned int PRE_BLOSSOM_HALVING_INTERVAL = 840000;

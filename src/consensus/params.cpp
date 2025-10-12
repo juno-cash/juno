@@ -363,41 +363,49 @@ namespace Consensus {
 
     CAmount Params::GetBlockSubsidy(int nHeight) const
     {
-        CAmount nSubsidy = 12.5 * COIN;
+        // Emission schedule with 21,000,000 JMR maximum supply
+        // - Blocks 0-9: 0 coins (genesis buffer)
+        // - Blocks 10-29,999: Ramp-up (0.25 doubling every 5,000 blocks to 8)
+        // - Blocks 30,000-99,999: 10 coins (plateau)
+        // - Blocks 100,000-625,599: 8 coins (first year)
+        // - Blocks 625,600+: Halvings every 4 years starting from 4 coins
+        // - After 9,991,569: 0 coins (21M cap reached)
 
-        // Mining slow start
-        // The subsidy is ramped up linearly, skipping the middle payout of
-        // MAX_SUBSIDY/2 to keep the monetary curve consistent with no slow start.
-        if (nHeight < this->SubsidySlowStartShift()) {
-            nSubsidy /= this->nSubsidySlowStartInterval;
-            nSubsidy *= nHeight;
-            return nSubsidy;
-        } else if (nHeight < this->nSubsidySlowStartInterval) {
-            nSubsidy /= this->nSubsidySlowStartInterval;
-            nSubsidy *= (nHeight+1);
-            return nSubsidy;
-        }
+        static const CAmount RAMP_BASE = 25000000;  // 0.25 * COIN
+        static const int HALVING_INTERVAL = 2103840; // 4 years = 2,103,840 blocks
 
-        assert(nHeight >= this->SubsidySlowStartShift());
-
-        int halvings = this->Halving(nHeight);
-
-        // Force block reward to zero when right shift is undefined.
-        if (halvings >= 64)
+        // Maximum supply enforcement
+        if (nHeight > 9991569) {
             return 0;
-
-        // zip208
-        // BlockSubsidy(height) :=
-        // SlowStartRate · height, if height < SlowStartInterval / 2
-        // SlowStartRate · (height + 1), if SlowStartInterval / 2 ≤ height and height < SlowStartInterval
-        // floor(MaxBlockSubsidy / 2^Halving(height)), if SlowStartInterval ≤ height and not IsBlossomActivated(height)
-        // floor(MaxBlockSubsidy / (BlossomPoWTargetSpacingRatio · 2^Halving(height))), otherwise
-        if (this->NetworkUpgradeActive(nHeight, Consensus::UPGRADE_BLOSSOM)) {
-            return (nSubsidy / Consensus::BLOSSOM_POW_TARGET_SPACING_RATIO) >> halvings;
-        } else {
-            // Subsidy is cut in half every 840,000 blocks which will occur approximately every 4 years.
-            return nSubsidy >> halvings;
         }
+
+        // Genesis buffer
+        if (nHeight < 10) {
+            return 0;
+        }
+
+        // Reverse-halving ramp-up (doubling every 5,000 blocks)
+        if (nHeight >= 10 && nHeight < 30000) {
+            int shift = nHeight / 5000;  // 0 for 10-4999, 1 for 5000-9999, etc.
+            return RAMP_BASE << shift;
+        }
+
+        // Plateau at 10 coins
+        if (nHeight >= 30000 && nHeight < 100000) {
+            return 10 * COIN;
+        }
+
+        // First year at 8 coins
+        if (nHeight >= 100000 && nHeight < 625600) {
+            return 8 * COIN;
+        }
+
+        // Standard halvings every 4 years, starting from 4 coins
+        // nHeight >= 625600
+        int halvings = (nHeight - 625600) / HALVING_INTERVAL;
+        CAmount nSubsidy = 4 * COIN;
+        nSubsidy >>= halvings;  // Right shift = divide by 2^halvings
+        return nSubsidy;
     }
 
     std::vector<std::pair<FSInfo, FundingStream>> Params::GetActiveFundingStreams(int nHeight) const
