@@ -989,8 +989,21 @@ void InitLogging()
         initialFilter.c_str(),
         fLogTimestamps);
 
-    LogPrintf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    LogPrintf("Zcash version %s\n", FormatFullVersion());
+    std::string network = "mainnet";
+    if (GetBoolArg("-regtest", false))
+        network = "regtest";
+    else if (GetBoolArg("-testnet", false))
+        network = "testnet";
+
+    LogPrintf("\n");
+    LogPrintf("  Juno (Moneta) %s - %s node\n", FormatFullVersion(), network);
+    LogPrintf("  Privacy Money for All\n");
+    LogPrintf("\n");
+    LogPrintf("  https://juno.cash/\n");
+    LogPrintf("\n");
+    LogPrintf("  Please consider donating a few percent of your mining rewards to support development\n");
+    LogPrintf("  add donationpercentage=5 in your ~/.juno/juno.conf (example 5 percent)\n");
+    LogPrintf("\n");
 }
 
 [[noreturn]] static void new_handler_terminate()
@@ -1462,9 +1475,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     try {
         static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
         if (!lock.try_lock())
-            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zcash is probably already running."), strDataDir));
+            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Juno is probably already running."), strDataDir));
     } catch(const boost::interprocess::interprocess_exception& e) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zcash is probably already running.") + " %s.", strDataDir, e.what()));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Juno is probably already running.") + " %s.", strDataDir, e.what()));
     }
 
 #ifndef WIN32
@@ -1987,6 +2000,29 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         //   argument is not modified; in practice this means it is empty, and
         //   GenerateBitcoins() returns an error.
         GetMainSignals().AddressForMining.connect(GetMinerAddress);
+    }
+
+    // Validate developer donation parameters
+    if (mapArgs.count("-donationpercentage")) {
+        int donationPercent = GetArg("-donationpercentage", 0);
+        if (donationPercent < 0 || donationPercent > 100) {
+            return InitError(_("-donationpercentage must be between 0 and 100"));
+        }
+        if (donationPercent > 0) {
+            std::string devAddress = GetArg("-donationaddress", "");
+            if (devAddress.empty()) {
+                devAddress = chainparams.GetDefaultDeveloperAddress();
+            } else {
+                // Validate the custom developer address
+                KeyIO keyIO(chainparams);
+                auto addr = keyIO.DecodePaymentAddress(devAddress);
+                if (!addr.has_value()) {
+                    return InitError(_("-donationaddress is not a valid " PACKAGE_NAME " address."));
+                }
+            }
+            LogPrintf("Developer donation enabled: %d%% of block rewards will be donated to %s\n",
+                      donationPercent, devAddress);
+        }
     }
 #endif // ENABLE_MINING
 

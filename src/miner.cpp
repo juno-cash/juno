@@ -18,6 +18,7 @@
 #include "consensus/validation.h"
 #ifdef ENABLE_MINING
 #include "crypto/equihash.h"
+#include "crypto/randomx_wrapper.h"
 #endif
 #include "hash.h"
 #include "key_io.h"
@@ -117,58 +118,9 @@ public:
     CAmount SetFoundersRewardAndGetMinerValue(sapling::Builder& saplingBuilder) const {
         const auto& consensus = chainparams.GetConsensus();
         const auto block_subsidy = consensus.GetBlockSubsidy(nHeight);
-        auto miner_reward = block_subsidy; // founders' reward or funding stream amounts will be subtracted below
 
-        if (nHeight > 0) {
-            if (chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_CANOPY)) {
-                LogPrint("pow", "%s: Constructing funding stream outputs for height %d", __func__, nHeight);
-                for (const auto& [fsinfo, fs] : consensus.GetActiveFundingStreams(nHeight)) {
-                    const auto amount = fsinfo.Value(block_subsidy);
-                    miner_reward -= amount;
-
-                    examine(fs.Recipient(consensus, nHeight), match {
-                        [&](const libzcash::SaplingPaymentAddress& pa) {
-                            LogPrint("pow", "%s: Adding Sapling funding stream output of value %d", __func__, amount);
-                            saplingBuilder.add_recipient(
-                                {},
-                                pa.GetRawBytes(),
-                                amount,
-                                libzcash::Memo::ToBytes(std::nullopt));
-                        },
-                        [&](const CScript& scriptPubKey) {
-                            LogPrint("pow", "%s: Adding transparent funding stream output of value %d", __func__, amount);
-                            mtx.vout.emplace_back(amount, scriptPubKey);
-                        },
-                        [&](const Consensus::Lockbox& lockbox) {
-                            LogPrint("pow", "%s: Noting lockbox output of value %d", __func__, amount);
-                        }
-                    });
-                }
-            } else if (nHeight <= chainparams.GetConsensus().GetLastFoundersRewardBlockHeight(nHeight)) {
-                // Founders reward is 20% of the block subsidy
-                const auto vFoundersReward = miner_reward / 5;
-                // Take some reward away from us
-                miner_reward -= vFoundersReward;
-                // And give it to the founders
-                mtx.vout.push_back(CTxOut(vFoundersReward, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
-            } else {
-                // Founders reward ends without replacement if Canopy is not activated by the
-                // last Founders' Reward block height + 1.
-            }
-
-            if (chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_NU6_1)) {
-                auto disbursements = consensus.GetLockboxDisbursementsForHeight(nHeight);
-                if (!disbursements.empty()) {
-                    LogPrint("pow", "%s: Constructing one-time lockbox disbursement outputs for height %d", __func__, nHeight);
-                    for (const auto& disbursement : disbursements) {
-                        LogPrint("pow", "%s: Adding transparent lockbox disbursement output of value %d",
-                                 __func__, disbursement.GetAmount());
-                        mtx.vout.emplace_back(disbursement.GetAmount(), disbursement.GetRecipient());
-                    }
-                }
-            }
-        }
-        LogPrint("pow", "%s: Miner reward at height %d is %d", __func__, nHeight, miner_reward);
+        // In this fork, 100% of block subsidy goes to the miner - no funding streams
+        auto miner_reward = block_subsidy;
 
         return miner_reward + nFees;
     }
@@ -272,13 +224,49 @@ public:
         std::array<uint8_t, 32> saplingAnchor;
         auto saplingBuilder = sapling::new_builder(*chainparams.RustNetwork(), nHeight, saplingAnchor, true);
 
-        // Miner output will be vout[0]; Founders' Reward & funding stream outputs
-        // will follow.
-        mtx.vout.resize(1);
-        auto value = SetFoundersRewardAndGetMinerValue(*saplingBuilder);
+        auto total_value = SetFoundersRewardAndGetMinerValue(*saplingBuilder);
 
-        // Now fill in the miner's output.
-        mtx.vout[0] = CTxOut(value, coinbaseScript->reserveScript);
+        // Check if developer donation is enabled
+        int donationPercent = GetArg("-donationpercentage", 0);
+        if (donationPercent > 0 && donationPercent <= 100) {
+            // Calculate developer reward
+            CAmount developer_value = (total_value * donationPercent) / 100;
+            CAmount miner_value = total_value - developer_value;
+
+            // Get donation address
+            std::string devAddress = GetArg("-donationaddress", "");
+            if (devAddress.empty()) {
+                devAddress = chainparams.GetDefaultDeveloperAddress();
+            }
+
+            // Create script for developer address
+            KeyIO keyIO(chainparams);
+            auto addr = keyIO.DecodePaymentAddress(devAddress);
+            assert(addr.has_value());
+
+            // Support both P2PKH (t1) and P2SH (t2) addresses
+            CScript developerScript;
+            if (std::holds_alternative<CKeyID>(addr.value())) {
+                // P2PKH address (t1)
+                CKeyID keyID = std::get<CKeyID>(addr.value());
+                developerScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+            } else if (std::holds_alternative<CScriptID>(addr.value())) {
+                // P2SH address (t2)
+                CScriptID scriptID = std::get<CScriptID>(addr.value());
+                developerScript = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+            } else {
+                throw std::runtime_error("Developer address must be a transparent P2PKH or P2SH address");
+            }
+
+            // Create two outputs: miner and developer
+            mtx.vout.resize(2);
+            mtx.vout[0] = CTxOut(miner_value, coinbaseScript->reserveScript);
+            mtx.vout[1] = CTxOut(developer_value, developerScript);
+        } else {
+            // No donation - single output to miner
+            mtx.vout.resize(1);
+            mtx.vout[0] = CTxOut(total_value, coinbaseScript->reserveScript);
+        }
 
         ComputeBindingSig(std::move(saplingBuilder), std::nullopt);
     }
@@ -815,19 +803,34 @@ void IncrementExtraNonce(
 static bool ProcessBlockFound(const CBlock* pblock, const CChainParams& chainparams)
 {
     LogPrintf("%s\n", pblock->ToString());
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue));
+
+    // Log generation with donation split if applicable
+    const auto& coinbase = pblock->vtx[0];
+    if (coinbase.vout.size() == 2) {
+        // Donation is active - show split
+        CAmount minerAmount = coinbase.vout[0].nValue;
+        CAmount donationAmount = coinbase.vout[1].nValue;
+        CAmount total = minerAmount + donationAmount;
+        LogPrintf("generated %s (%s + %s donation)\n",
+                  FormatMoney(total),
+                  FormatMoney(minerAmount),
+                  FormatMoney(donationAmount));
+    } else {
+        // No donation - show single amount
+        LogPrintf("generated %s\n", FormatMoney(coinbase.vout[0].nValue));
+    }
 
     // Found a solution
     {
         LOCK(cs_main);
         if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
-            return error("ZcashMiner: generated block is stale");
+            return error("JunoMonetaMiner: generated block is stale");
     }
 
     // Process this block the same as if we had received it from another node
     CValidationState state;
     if (!ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL))
-        return error("ZcashMiner: ProcessNewBlock, block not accepted");
+        return error("JunoMonetaMiner: ProcessNewBlock, block not accepted");
 
     TrackMinedBlock(pblock->GetHash());
 
@@ -836,22 +839,17 @@ static bool ProcessBlockFound(const CBlock* pblock, const CChainParams& chainpar
 
 void static BitcoinMiner(const CChainParams& chainparams)
 {
-    LogPrintf("ZcashMiner started\n");
+    LogPrintf("JunoMonetaMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("zcash-miner");
+
+    // Initialize RandomX
+    RandomX_Init();
 
     // Each thread has its own counter
     unsigned int nExtraNonce = 0;
 
-    std::optional<MinerAddress> maybeMinerAddress;
-    GetMainSignals().AddressForMining(maybeMinerAddress);
-
-    unsigned int n = chainparams.GetConsensus().nEquihashN;
-    unsigned int k = chainparams.GetConsensus().nEquihashK;
-
-    std::string solver = GetArg("-equihashsolver", "default");
-    assert(solver == "tromp" || solver == "default");
-    LogPrint("pow", "Using Equihash solver \"%s\" with n = %u, k = %u\n", solver, n, k);
+    LogPrint("pow", "Using RandomX proof-of-work algorithm\n");
 
     std::mutex m_cs;
     bool cancelSolver = false;
@@ -864,13 +862,16 @@ void static BitcoinMiner(const CChainParams& chainparams)
     miningTimer.start();
 
     try {
-        // Throw an error if no address valid for mining was provided.
-        if (!(maybeMinerAddress.has_value() && std::visit(IsValidMinerAddress(), maybeMinerAddress.value()))) {
-            throw std::runtime_error("No miner address available (mining requires a wallet or -mineraddress)");
-        }
-        auto minerAddress = maybeMinerAddress.value();
-
         while (true) {
+            // Get a fresh address for each block (Bitcoin-style, not address reuse)
+            std::optional<MinerAddress> maybeMinerAddress;
+            GetMainSignals().AddressForMining(maybeMinerAddress);
+
+            // Throw an error if no address valid for mining was provided.
+            if (!(maybeMinerAddress.has_value() && std::visit(IsValidMinerAddress(), maybeMinerAddress.value()))) {
+                throw std::runtime_error("No miner address available (mining requires a wallet or -mineraddress)");
+            }
+            auto minerAddress = maybeMinerAddress.value();
             if (chainparams.MiningRequiresPeers()) {
                 // Busy-wait for the network to come online so we don't waste time mining
                 // on an obsolete chain. In regtest mode we expect to fly solo.
@@ -908,18 +909,50 @@ void static BitcoinMiner(const CChainParams& chainparams)
             if (!pblocktemplate.get())
             {
                 if (GetArg("-mineraddress", "").empty()) {
-                    LogPrintf("Error in ZcashMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
+                    LogPrintf("Error in JunoMonetaMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
                 } else {
                     // Should never reach here, because -mineraddress validity is checked in init.cpp
-                    LogPrintf("Error in ZcashMiner: Invalid -mineraddress\n");
+                    LogPrintf("Error in JunoMonetaMiner: Invalid -mineraddress\n");
                 }
                 return;
             }
             CBlock *pblock = &pblocktemplate->block;
             IncrementExtraNonce(pblocktemplate.get(), pindexPrev, nExtraNonce, chainparams.GetConsensus());
 
-            LogPrintf("Running ZcashMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
+            LogPrintf("Running JunoMonetaMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
                 ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
+
+            // Calculate seed height and set RandomX seed for this epoch
+            uint64_t blockHeight = pindexPrev->nHeight + 1;
+            uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
+            uint256 seedHash;
+
+            if (seedHeight == 0) {
+                // Genesis epoch: use 0x08 followed by zeros (matching Monero's style but with visible value)
+                seedHash.SetNull();
+                // Set first byte to 0x08 (at beginning of internal storage to match hex serialization)
+                *seedHash.begin() = 0x08;
+                LogPrintf("Mining at height %d using genesis RandomX seed (0x08...)\n", blockHeight);
+            } else {
+                // Get seed block hash
+                CBlockIndex* pindexSeed;
+                {
+                    LOCK(cs_main);
+                    pindexSeed = chainActive[seedHeight];
+                }
+                if (pindexSeed == nullptr) {
+                    LogPrintf("ERROR: Could not find seed block at height %d\n", seedHeight);
+                    MilliSleep(1000);
+                    continue;
+                }
+                seedHash = pindexSeed->GetBlockHash();
+                LogPrintf("Mining at height %d using RandomX seed from block %d (hash: %s)\n",
+                         blockHeight, seedHeight, seedHash.GetHex());
+            }
+
+            // Update RandomX cache for this seed
+            // Use internal byte order directly (little-endian) as Monero does
+            RandomX_SetMainSeedHash(seedHash.begin(), 32);
 
             //
             // Search
@@ -928,41 +961,33 @@ void static BitcoinMiner(const CChainParams& chainparams)
             arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
 
             while (true) {
-                // Hash state
-                eh_HashState state = EhInitialiseState(n, k);
-
                 // I = the block header minus nonce and solution.
                 CEquihashInput I{*pblock};
                 CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                 ss << I;
+                ss << pblock->nNonce;
 
-                // H(I||...
-                state.Update((unsigned char*)&ss[0], ss.size());
+                // Calculate RandomX hash
+                uint256 hash;
+                if (!RandomX_Hash_Block(ss.data(), ss.size(), hash)) {
+                    LogPrintf("RandomX hashing failed\n");
+                    break;
+                }
 
-                // H(I||V||...
-                eh_HashState curr_state = state;
-                curr_state.Update(pblock->nNonce.begin(), pblock->nNonce.size());
+                // Increment hash counter for metrics
+                ehSolverRuns.increment();
 
-                // (x_1, x_2, ...) = A(I, V, n, k)
-                LogPrint("pow", "Running Equihash solver \"%s\" with nNonce = %s\n",
-                         solver, pblock->nNonce.ToString());
+                // Store the hash in nSolution (32 bytes)
+                pblock->nSolution.resize(32);
+                memcpy(pblock->nSolution.data(), hash.begin(), 32);
 
-                std::function<bool(std::vector<unsigned char>)> validBlock =
-                        [&pblock, &hashTarget, &chainparams, &m_cs, &cancelSolver, &minerAddress]
-                        (std::vector<unsigned char> soln) {
-                    // Write the solution to the hash and compute the result.
-                    LogPrint("pow", "- Checking solution against target\n");
-                    pblock->nSolution = soln;
-                    solutionTargetChecks.increment();
-
-                    if (UintToArith256(pblock->GetHash()) > hashTarget) {
-                        return false;
-                    }
-
+                // Check if hash meets target
+                solutionTargetChecks.increment();
+                if (UintToArith256(hash) <= hashTarget) {
                     // Found a solution
                     SetThreadPriority(THREAD_PRIORITY_NORMAL);
-                    LogPrintf("ZcashMiner:\n");
-                    LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", pblock->GetHash().GetHex(), hashTarget.GetHex());
+                    LogPrintf("JunoMonetaMiner:\n");
+                    LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex(), hashTarget.GetHex());
                     if (ProcessBlockFound(pblock, chainparams)) {
                         // Ignore chain updates caused by us
                         std::lock_guard<std::mutex> lock{m_cs};
@@ -973,39 +998,10 @@ void static BitcoinMiner(const CChainParams& chainparams)
 
                     // In regression test mode, stop mining after a block is found.
                     if (chainparams.MineBlocksOnDemand()) {
-                        // Increment here because throwing skips the call below
-                        ehSolverRuns.increment();
                         throw boost::thread_interrupted();
                     }
 
-                    return true;
-                };
-                std::function<bool(EhSolverCancelCheck)> cancelled = [&m_cs, &cancelSolver](EhSolverCancelCheck pos) {
-                    std::lock_guard<std::mutex> lock{m_cs};
-                    return cancelSolver;
-                };
-
-                // TODO: factor this out into a function with the same API for each solver.
-                if (solver == "tromp") {
-                    std::function<void()> incrementRuns = [&]() { ehSolverRuns.increment(); };
-                    std::function<bool(size_t s, const std::vector<uint32_t>&)> checkSolution = [&](size_t s, const std::vector<uint32_t>& index_vector) {
-                        LogPrint("pow", "Checking solution %d\n", s+1);
-                        return validBlock(GetMinimalFromIndices(index_vector, DIGITBITS));
-                    };
-                    equihash_solve(curr_state.inner, incrementRuns, checkSolution);
-                } else {
-                    try {
-                        // If we find a valid block, we rebuild
-                        bool found = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
-                        ehSolverRuns.increment();
-                        if (found) {
-                            break;
-                        }
-                    } catch (EhSolverCancelledException&) {
-                        LogPrint("pow", "Equihash solver cancelled\n");
-                        std::lock_guard<std::mutex> lock{m_cs};
-                        cancelSolver = false;
-                    }
+                    break;
                 }
 
                 // Check for stop or if block needs to be rebuilt
@@ -1037,18 +1033,21 @@ void static BitcoinMiner(const CChainParams& chainparams)
     {
         miningTimer.stop();
         c.disconnect();
-        LogPrintf("ZcashMiner terminated\n");
+        // Don't call RandomX_Shutdown() - keep RandomX available for block validation
+        LogPrintf("JunoMonetaMiner terminated\n");
         throw;
     }
     catch (const std::runtime_error &e)
     {
         miningTimer.stop();
         c.disconnect();
-        LogPrintf("ZcashMiner runtime error: %s\n", e.what());
+        // Don't call RandomX_Shutdown() - keep RandomX available for block validation
+        LogPrintf("JunoMonetaMiner runtime error: %s\n", e.what());
         return;
     }
     miningTimer.stop();
     c.disconnect();
+    // Don't call RandomX_Shutdown() - keep RandomX available for block validation
 }
 
 void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams)

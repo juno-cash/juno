@@ -1803,6 +1803,35 @@ bool AcceptToMemoryPool(
         return false;
     }
 
+    // Fork-specific: Strict transaction relay rules after NU6.1 (block 8)
+    // After block 8, only accept Orchard-to-Orchard transactions (no Sprout/Sapling/transparent outputs)
+    if (chainparams.GetConsensus().NetworkUpgradeActive(nextBlockHeight, Consensus::UPGRADE_NU6_1)) {
+        // Reject transactions with Sprout outputs (JoinSplits)
+        if (!tx.vJoinSplit.empty()) {
+            return state.DoS(10, error("AcceptToMemoryPool(): Sprout outputs not allowed after NU6.1"),
+                REJECT_INVALID, "sprout-output-after-nu6.1");
+        }
+
+        // Reject transactions with Sapling outputs
+        if (tx.GetSaplingOutputsCount() > 0) {
+            return state.DoS(10, error("AcceptToMemoryPool(): Sapling outputs not allowed after NU6.1"),
+                REJECT_INVALID, "sapling-output-after-nu6.1");
+        }
+
+        // Reject transactions with transparent outputs (except coinbase, which is checked separately)
+        if (!tx.vout.empty()) {
+            return state.DoS(10, error("AcceptToMemoryPool(): Transparent outputs not allowed after NU6.1"),
+                REJECT_INVALID, "transparent-output-after-nu6.1");
+        }
+
+        // At this point, only Orchard outputs are allowed
+        // Ensure the transaction has at least some Orchard actions
+        if (tx.GetOrchardBundle().GetNumActions() == 0) {
+            return state.DoS(10, error("AcceptToMemoryPool(): Non-coinbase transactions must have Orchard actions after NU6.1"),
+                REJECT_INVALID, "no-orchard-actions-after-nu6.1");
+        }
+    }
+
     // DoS mitigation: reject transactions expiring soon
     // Note that if a valid transaction belonging to the wallet is in the mempool and the node is shutdown,
     // upon restart, CWalletTx::AcceptToMemoryPool() will be invoked which might result in rejection.
@@ -2219,7 +2248,7 @@ bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHea
     return true;
 }
 
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus::Params& consensusParams)
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
     block.SetNull();
 
@@ -2236,10 +2265,18 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
         return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
     }
 
-    // Check the header
-    if (!(CheckEquihashSolution(&block, consensusParams) &&
-          CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)))
-        return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+    // Check the header (fork uses RandomX instead of Equihash)
+    // Skip POW validation for genesis block (it still has old Equihash solution)
+    uint256 blockHash = block.GetHash();
+    if (blockHash != consensusParams.hashGenesisBlock) {
+        uint256 randomxHash;
+        if (block.nSolution.size() == 32) {
+            memcpy(randomxHash.begin(), block.nSolution.data(), 32);
+        }
+        if (!(CheckRandomXSolution(&block, consensusParams, pindexPrev) &&
+              CheckProofOfWork(randomxHash, block.nBits, consensusParams)))
+            return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+    }
 
     return true;
 }
@@ -2251,7 +2288,7 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
                 pindex->ToString(), pindex->GetBlockPos().ToString());
     }
 
-    if (!ReadBlockFromDisk(block, pindex->GetBlockPos(), consensusParams))
+    if (!ReadBlockFromDisk(block, pindex->GetBlockPos(), consensusParams, pindex->pprev))
         return false;
     if (block.GetHash() != pindex->GetBlockHash())
         return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
@@ -4975,22 +5012,31 @@ bool CheckBlockHeader(
     const CBlockHeader& block,
     CValidationState& state,
     const CChainParams& chainparams,
-    bool fCheckPOW)
+    bool fCheckPOW,
+    const CBlockIndex* pindexPrev)
 {
     // Check block version
     if (block.nVersion < MIN_BLOCK_VERSION)
         return state.DoS(100, error("CheckBlockHeader(): block version too low"),
                          REJECT_INVALID, "version-too-low");
 
-    // Check Equihash solution is valid
-    if (fCheckPOW && !CheckEquihashSolution(&block, chainparams.GetConsensus()))
-        return state.DoS(100, error("CheckBlockHeader(): Equihash solution invalid"),
-                         REJECT_INVALID, "invalid-solution");
+    // Skip POW validation for genesis block (it still has old Equihash solution)
+    if (fCheckPOW && block.GetHash() != chainparams.GetConsensus().hashGenesisBlock) {
+        // Check RandomX solution is valid (fork uses RandomX instead of Equihash)
+        if (!CheckRandomXSolution(&block, chainparams.GetConsensus(), pindexPrev))
+            return state.DoS(100, error("CheckBlockHeader(): RandomX solution invalid"),
+                             REJECT_INVALID, "invalid-solution");
 
-    // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus()))
-        return state.DoS(50, error("CheckBlockHeader(): proof of work failed"),
-                         REJECT_INVALID, "high-hash");
+        // Check proof of work matches claimed amount
+        // For RandomX, the POW hash is the RandomX hash stored in nSolution, not the block hash
+        uint256 randomxHash;
+        if (block.nSolution.size() == 32) {
+            memcpy(randomxHash.begin(), block.nSolution.data(), 32);
+        }
+        if (!CheckProofOfWork(randomxHash, block.nBits, chainparams.GetConsensus()))
+            return state.DoS(50, error("CheckBlockHeader(): proof of work failed"),
+                             REJECT_INVALID, "high-hash");
+    }
 
     return true;
 }
@@ -5010,7 +5056,9 @@ bool CheckBlock(const CBlock& block,
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, chainparams, fCheckPOW))
+    // Skip POW check here since we don't have pindexPrev for correct RandomX seed validation.
+    // The POW is properly checked in AcceptBlockHeader with the correct seed.
+    if (!CheckBlockHeader(block, state, chainparams, false))
         return false;
 
     // Check the merkle root.
@@ -5074,7 +5122,8 @@ bool CheckBlock(const CBlock& block,
 
 bool ContextualCheckBlockHeader(
     const CBlockHeader& block, CValidationState& state,
-    const CChainParams& chainParams, CBlockIndex * const pindexPrev)
+    const CChainParams& chainParams, CBlockIndex * const pindexPrev,
+    bool fIsBlockTemplate)
 {
     const Consensus::Params& consensusParams = chainParams.GetConsensus();
     uint256 hash = block.GetHash();
@@ -5090,6 +5139,13 @@ bool ContextualCheckBlockHeader(
     if (block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams)) {
         return state.DoS(100, error("%s: incorrect proof of work", __func__),
                          REJECT_INVALID, "bad-diffbits");
+    }
+
+    // Check RandomX solution with epoch-based seed (requires block context)
+    // Skip for block templates since they don't have a valid solution yet
+    if (!fIsBlockTemplate && !CheckRandomXSolution(&block, consensusParams, pindexPrev)) {
+        return state.DoS(100, error("%s: RandomX solution invalid with correct seed", __func__),
+                         REJECT_INVALID, "invalid-solution-seed");
     }
 
     // Check timestamp against prev
@@ -5148,11 +5204,85 @@ bool ContextualCheckBlock(
 
     if (fCheckTransactions) {
         // Check that all transactions are finalized
-        for (const CTransaction& tx : block.vtx) {
+        for (size_t i = 0; i < block.vtx.size(); i++) {
+            const CTransaction& tx = block.vtx[i];
+            bool isCoinbase = (i == 0);
 
             // Check transaction contextually against consensus rules at block height
             if (!ContextualCheckTransaction(tx, state, chainparams, nHeight, true)) {
                 return false; // Failure reason has been set in validation state object
+            }
+
+            // Fork-specific: Enforce strict transaction rules after NU6.1 (block 8)
+            if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_NU6_1)) {
+                if (isCoinbase) {
+                    // Coinbase must only have transparent outputs
+                    if (!tx.vJoinSplit.empty()) {
+                        return state.DoS(100, error("%s: coinbase has Sprout outputs after NU6.1", __func__),
+                            REJECT_INVALID, "bad-cb-sprout-after-nu6.1");
+                    }
+                    if (tx.GetSaplingOutputsCount() > 0) {
+                        return state.DoS(100, error("%s: coinbase has Sapling outputs after NU6.1", __func__),
+                            REJECT_INVALID, "bad-cb-sapling-after-nu6.1");
+                    }
+                    if (tx.GetOrchardBundle().GetNumActions() > 0) {
+                        return state.DoS(100, error("%s: coinbase has Orchard outputs after NU6.1", __func__),
+                            REJECT_INVALID, "bad-cb-orchard-after-nu6.1");
+                    }
+                } else {
+                    // Non-coinbase transactions: only Orchard-to-Orchard allowed
+                    if (!tx.vJoinSplit.empty()) {
+                        return state.DoS(100, error("%s: transaction has Sprout outputs after NU6.1", __func__),
+                            REJECT_INVALID, "bad-tx-sprout-after-nu6.1");
+                    }
+                    if (tx.GetSaplingOutputsCount() > 0) {
+                        return state.DoS(100, error("%s: transaction has Sapling outputs after NU6.1", __func__),
+                            REJECT_INVALID, "bad-tx-sapling-after-nu6.1");
+                    }
+
+                    // Check if transaction spends coinbase outputs
+                    bool spendsFromCoinbase = false;
+                    if (!tx.vin.empty()) {
+                        // This transaction has transparent inputs
+                        // If any input is from a coinbase, only Orchard outputs are allowed
+                        for (const CTxIn& txin : tx.vin) {
+                            // Check if this input references a coinbase output
+                            for (size_t j = 0; j < block.vtx.size(); j++) {
+                                if (block.vtx[j].GetHash() == txin.prevout.hash) {
+                                    if (j == 0) {  // Is coinbase transaction
+                                        spendsFromCoinbase = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // If spending coinbase, must only have Orchard outputs
+                    // Otherwise, regular rule: no transparent outputs
+                    if (spendsFromCoinbase) {
+                        // Coinbase spends must go to Orchard only
+                        if (!tx.vout.empty()) {
+                            return state.DoS(100, error("%s: coinbase spend has transparent outputs after NU6.1", __func__),
+                                REJECT_INVALID, "bad-cb-spend-transparent-after-nu6.1");
+                        }
+                        if (tx.GetOrchardBundle().GetNumActions() == 0) {
+                            return state.DoS(100, error("%s: coinbase spend must go to Orchard after NU6.1", __func__),
+                                REJECT_INVALID, "bad-cb-spend-no-orchard-after-nu6.1");
+                        }
+                    } else {
+                        // Regular transaction (non-coinbase spend)
+                        if (!tx.vout.empty()) {
+                            return state.DoS(100, error("%s: transaction has transparent outputs after NU6.1", __func__),
+                                REJECT_INVALID, "bad-tx-transparent-after-nu6.1");
+                        }
+                        // Must have Orchard actions
+                        if (tx.GetOrchardBundle().GetNumActions() == 0) {
+                            return state.DoS(100, error("%s: non-coinbase transaction must have Orchard actions after NU6.1", __func__),
+                                REJECT_INVALID, "bad-tx-no-orchard-after-nu6.1");
+                        }
+                    }
+                }
             }
 
             int nLockTimeFlags = 0;
@@ -5189,6 +5319,9 @@ bool ContextualCheckBlock(
         }
     }
 
+    // Founders reward validation removed for this fork - 100% goes to miners
+    // (Original code: required 20% founders reward before Canopy, then funding streams after Canopy)
+    /*
     if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_CANOPY)) {
         // Funding streams are checked inside ContextualCheckTransaction.
         // This empty conditional branch exists to enforce this ZIP 207 consensus rule:
@@ -5217,6 +5350,7 @@ bool ContextualCheckBlock(
                              REJECT_INVALID, "cb-no-founders-reward");
         }
     }
+    */
 
     return true;
 }
@@ -5238,10 +5372,7 @@ static bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state
         return true;
     }
 
-    if (!CheckBlockHeader(block, state, chainparams))
-        return false;
-
-    // Get prev block index
+    // Get prev block index (needed for RandomX seed validation)
     CBlockIndex* pindexPrev = NULL;
     if (hash != chainparams.GetConsensus().hashGenesisBlock) {
         BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
@@ -5251,6 +5382,9 @@ static bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
             return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
     }
+
+    if (!CheckBlockHeader(block, state, chainparams, true, pindexPrev))
+        return false;
 
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev))
         return false;
@@ -5414,7 +5548,7 @@ bool TestBlockValidity(
     auto blockChecks = fIsBlockTemplate ? CheckAs::BlockTemplate : CheckAs::Block;
 
     // NOTE: CheckBlockHeader is called by CheckBlock
-    if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev))
+    if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, fIsBlockTemplate))
         return false;
     // The following may be duplicative of the `CheckBlock` call within `ConnectBlock`
     if (!CheckBlock(block, state, chainparams, verifier, false, fCheckMerkleRoot, true))

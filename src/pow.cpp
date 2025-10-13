@@ -10,9 +10,11 @@
 #include "chain.h"
 #include "chainparams.h"
 #include "crypto/equihash.h"
+#include "crypto/randomx_wrapper.h"
 #include "primitives/block.h"
 #include "streams.h"
 #include "uint256.h"
+#include "util/system.h"
 
 #include <librustzcash.h>
 #include <rust/equihash.h>
@@ -120,6 +122,88 @@ bool CheckEquihashSolution(const CBlockHeader *pblock, const Consensus::Params& 
         {(const unsigned char*)ss.data(), ss.size()},
         {pblock->nNonce.begin(), pblock->nNonce.size()},
         {pblock->nSolution.data(), pblock->nSolution.size()});
+}
+
+bool CheckRandomXSolution(const CBlockHeader *pblock, const Consensus::Params& params, const CBlockIndex* pindexPrev)
+{
+    // For RandomX, we hash the block header (minus solution) with the nonce
+    // The nSolution field stores the RandomX hash result for verification
+    CEquihashInput I{*pblock};
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << I;
+    ss << pblock->nNonce;
+
+    // Determine the block height and seed hash
+    uint64_t blockHeight = 0;
+    uint256 seedHash;
+
+    if (pindexPrev != nullptr) {
+        blockHeight = pindexPrev->nHeight + 1;
+
+        // Calculate seed height for this block
+        uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
+
+        // Get the seed block hash
+        if (seedHeight == 0) {
+            // Genesis epoch: use 0x08 followed by zeros (matching Monero's style but with visible value)
+            seedHash.SetNull();
+            // Set first byte to 0x08 (at beginning of internal storage to match hex serialization)
+            *seedHash.begin() = 0x08;
+        } else {
+            // Get the block at seed height
+            const CBlockIndex* pindexSeed = pindexPrev->GetAncestor(seedHeight);
+            if (pindexSeed == nullptr) {
+                LogPrintf("RandomX: ERROR - Could not find seed block at height %d\n", seedHeight);
+                return false;
+            }
+            seedHash = pindexSeed->GetBlockHash();
+        }
+
+        LogPrint("pow", "CheckRandomXSolution: Validating block at height %d with seed from block %d (hash: %s)\n",
+                 blockHeight, seedHeight, seedHash.GetHex());
+
+        // Calculate RandomX hash with the specific seed
+        // Use internal byte order directly (little-endian) as Monero does
+        uint256 hash;
+        if (!RandomX_Hash_WithSeed(seedHash.begin(), 32, ss.data(), ss.size(), hash.begin())) {
+            LogPrintf("CheckRandomXSolution: RandomX_Hash_WithSeed failed\n");
+            return false;
+        }
+
+        // Verify the stored solution matches the calculated hash
+        if (pblock->nSolution.size() != 32) {
+            LogPrintf("CheckRandomXSolution: Invalid solution size: %d\n", pblock->nSolution.size());
+            return false;
+        }
+
+        uint256 storedHash;
+        memcpy(storedHash.begin(), pblock->nSolution.data(), 32);
+
+        bool result = (hash == storedHash);
+        if (!result) {
+            LogPrintf("CheckRandomXSolution: Hash mismatch! Computed: %s, Stored: %s\n",
+                     hash.GetHex(), storedHash.GetHex());
+        }
+
+        return result;
+    } else {
+        // No block index available - use current main seed (for mining/mempool)
+        // This is less secure but necessary for stateless validation
+        uint256 hash;
+        if (!RandomX_Hash_Block(ss.data(), ss.size(), hash)) {
+            return false;
+        }
+
+        // Verify the stored solution matches the calculated hash
+        if (pblock->nSolution.size() != 32) {
+            return false;
+        }
+
+        uint256 storedHash;
+        memcpy(storedHash.begin(), pblock->nSolution.data(), 32);
+
+        return hash == storedHash;
+    }
 }
 
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)
