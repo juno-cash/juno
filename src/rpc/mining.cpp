@@ -13,6 +13,7 @@
 #include "core_io.h"
 #ifdef ENABLE_MINING
 #include "crypto/equihash.h"
+#include "crypto/randomx_wrapper.h"
 #endif
 #include "deprecation.h"
 #include "init.h"
@@ -63,6 +64,10 @@ int64_t GetNetworkHashPS(int lookup, int height) {
     if (lookup > pb->nHeight)
         lookup = pb->nHeight;
 
+    // Need at least 2 blocks to calculate hash rate
+    if (lookup < 1)
+        return 0;
+
     CBlockIndex *pb0 = pb;
     int64_t minTime = pb0->GetBlockTime();
     int64_t maxTime = minTime;
@@ -80,7 +85,14 @@ int64_t GetNetworkHashPS(int lookup, int height) {
     arith_uint256 workDiff = pb->nChainWork - pb0->nChainWork;
     int64_t timeDiff = maxTime - minTime;
 
-    return (int64_t)(workDiff.getdouble() / timeDiff);
+    // Debug: Log if we get unexpected zero
+    double hashRate = workDiff.getdouble() / timeDiff;
+    if (hashRate < 0.001) {
+        LogPrintf("GetNetworkHashPS: lookup=%d, height=%d->%d, work=%s, time=%d, hashRate=%f\n",
+                  lookup, pb->nHeight, pb0->nHeight, workDiff.ToString(), timeDiff, hashRate);
+    }
+
+    return (int64_t)(hashRate);
 }
 
 UniValue getlocalsolps(const UniValue& params, bool fHelp)
@@ -192,26 +204,6 @@ UniValue generate(const UniValue& params, bool fHelp)
     int nHeight = 0;
     int nGenerate = params[0].get_int();
 
-    std::optional<MinerAddress> maybeMinerAddress;
-    GetMainSignals().AddressForMining(maybeMinerAddress);
-
-    // Throw an error if no address valid for mining was provided.
-    if (!maybeMinerAddress.has_value()) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "No miner address available (mining requires a wallet or -mineraddress)");
-    } else {
-        // Detect and handle keypool exhaustion separately from IsValidMinerAddress().
-        auto resv = std::get_if<boost::shared_ptr<CReserveScript>>(&maybeMinerAddress.value());
-        if (resv && !resv->get()) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-        }
-
-        // Catch any other invalid miner address issues.
-        if (!std::visit(IsValidMinerAddress(), maybeMinerAddress.value())) {
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Miner address is invalid");
-        }
-    }
-    auto minerAddress = maybeMinerAddress.value();
-
     {   // Don't keep cs_main locked
         LOCK(cs_main);
         nHeightStart = chainActive.Height();
@@ -224,6 +216,27 @@ UniValue generate(const UniValue& params, bool fHelp)
     unsigned int k = Params().GetConsensus().nEquihashK;
     while (nHeight < nHeightEnd)
     {
+        // Get a fresh address for each block (Bitcoin-style, not address reuse)
+        std::optional<MinerAddress> maybeMinerAddress;
+        GetMainSignals().AddressForMining(maybeMinerAddress);
+
+        // Throw an error if no address valid for mining was provided.
+        if (!maybeMinerAddress.has_value()) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "No miner address available (mining requires a wallet or -mineraddress)");
+        } else {
+            // Detect and handle keypool exhaustion separately from IsValidMinerAddress().
+            auto resv = std::get_if<boost::shared_ptr<CReserveScript>>(&maybeMinerAddress.value());
+            if (resv && !resv->get()) {
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+            }
+
+            // Catch any other invalid miner address issues.
+            if (!std::visit(IsValidMinerAddress(), maybeMinerAddress.value())) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Miner address is invalid");
+            }
+        }
+        auto minerAddress = maybeMinerAddress.value();
+
         std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(minerAddress));
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
@@ -233,40 +246,76 @@ UniValue generate(const UniValue& params, bool fHelp)
             IncrementExtraNonce(pblocktemplate.get(), chainActive.Tip(), nExtraNonce, Params().GetConsensus());
         }
 
-        // Hash state
-        eh_HashState eh_state = EhInitialiseState(n, k);
+        // RandomX mining (fork uses RandomX instead of Equihash)
+        // Calculate seed height and set RandomX seed for this epoch
+        uint64_t blockHeight;
+        uint256 seedHash;
+        {
+            LOCK(cs_main);
+            CBlockIndex* pindexPrev = chainActive.Tip();
+            blockHeight = pindexPrev->nHeight + 1;
+            uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
 
-        // I = the block header minus nonce and solution.
+            if (seedHeight == 0) {
+                // Genesis epoch: use 0x08 followed by zeros (matching Monero's style but with visible value)
+                seedHash.SetNull();
+                // Set first byte to 0x08 (at beginning of internal storage to match hex serialization)
+                *seedHash.begin() = 0x08;
+                LogPrintf("generate RPC: Mining block %d using genesis RandomX seed (0x08...)\n", blockHeight);
+            } else {
+                // Get seed block hash
+                CBlockIndex* pindexSeed = chainActive[seedHeight];
+                if (pindexSeed == nullptr) {
+                    throw JSONRPCError(RPC_INTERNAL_ERROR, strprintf("Could not find seed block at height %d", seedHeight));
+                }
+                seedHash = pindexSeed->GetBlockHash();
+                LogPrintf("generate RPC: Mining block %d using RandomX seed from block %d (hash: %s)\n",
+                         blockHeight, seedHeight, seedHash.GetHex());
+            }
+        }
+
+        // Update RandomX cache for this seed
+        // Use internal byte order directly (little-endian) as Monero does
+        RandomX_SetMainSeedHash(seedHash.begin(), 32);
+
+        // Initialize input for RandomX
         CEquihashInput I{*pblock};
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << I;
 
-        // H(I||...
-        eh_state.Update((unsigned char*)&ss[0], ss.size());
+        // Ensure RandomX is initialized
+        RandomX_Init();
 
         while (true) {
             // Yes, there is a chance every nonce could fail to satisfy the -regtest
             // target -- 1 in 2^(2^256). That ain't gonna happen
             pblock->nNonce = ArithToUint256(UintToArith256(pblock->nNonce) + 1);
 
-            // H(I||V||...
-            eh_HashState curr_state(eh_state);
-            curr_state.Update(pblock->nNonce.begin(), pblock->nNonce.size());
+            // Serialize header for RandomX hashing (header minus solution, with nonce)
+            CDataStream randomxInput(SER_NETWORK, PROTOCOL_VERSION);
+            randomxInput << I;
+            randomxInput << pblock->nNonce;
 
-            // (x_1, x_2, ...) = A(I, V, n, k)
-            std::function<bool(std::vector<unsigned char>)> validBlock =
-                    [&pblock](std::vector<unsigned char> soln) {
-                pblock->nSolution = soln;
-                solutionTargetChecks.increment();
-                return CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus());
-            };
-            bool found = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
+            // Calculate RandomX hash
+            uint256 randomxHash;
+            if (!RandomX_Hash_Block(randomxInput.data(), randomxInput.size(), randomxHash)) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "RandomX hashing failed");
+            }
+
+            // Increment hash counter for metrics
             ehSolverRuns.increment();
-            if (found) {
-                goto endloop;
+
+            // Store RandomX hash in nSolution field (32 bytes)
+            pblock->nSolution.resize(32);
+            memcpy(pblock->nSolution.data(), randomxHash.begin(), 32);
+
+            // Check if hash meets target
+            solutionTargetChecks.increment();
+            if (UintToArith256(randomxHash) <= arith_uint256().SetCompact(pblock->nBits)) {
+                // Found valid block
+                break;
             }
         }
-endloop:
         CValidationState state;
         if (!ProcessNewBlock(state, Params(), NULL, pblock, true, NULL))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
@@ -319,6 +368,88 @@ UniValue setgenerate(const UniValue& params, bool fHelp)
     mapArgs["-gen"] = (fGenerate ? "1" : "0");
     mapArgs ["-genproclimit"] = itostr(nGenProcLimit);
     GenerateBitcoins(fGenerate, nGenProcLimit, Params());
+
+    return NullUniValue;
+}
+
+UniValue setdonationpercentage(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "setdonationpercentage percentage\n"
+            "\nSet the percentage of block rewards to donate to the developer fund.\n"
+            "\nArguments:\n"
+            "1. percentage       (numeric, required) Percentage to donate (0-100). Set to 0 to disable donations.\n"
+            "\nExamples:\n"
+            "\nDonate 10% of block rewards to developer fund\n"
+            + HelpExampleCli("setdonationpercentage", "10") +
+            "\nDisable donations\n"
+            + HelpExampleCli("setdonationpercentage", "0") +
+            "\nUsing json rpc\n"
+            + HelpExampleRpc("setdonationpercentage", "10")
+        );
+
+    int percentage = params[0].get_int();
+
+    if (percentage < 0 || percentage > 100) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Percentage must be between 0 and 100");
+    }
+
+    mapArgs["-donationpercentage"] = itostr(percentage);
+
+    if (percentage > 0) {
+        std::string devAddress = GetArg("-donationaddress", "");
+        if (devAddress.empty()) {
+            devAddress = Params().GetDefaultDeveloperAddress();
+        }
+        LogPrintf("User set block reward to donate %d%% block rewards to developer fund (%s)\n",
+                  percentage, devAddress);
+    } else {
+        LogPrintf("User disabled block reward donations to developer fund\n");
+    }
+
+    return NullUniValue;
+}
+
+UniValue setdonationaddress(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "setdonationaddress address\n"
+            "\nSet the address to receive donations.\n"
+            "\nArguments:\n"
+            "1. address          (string, required) Transparent address (t1 or t2) to receive donations.\n"
+            "\nExamples:\n"
+            "\nSet donation address\n"
+            + HelpExampleCli("setdonationaddress", "\"t1HwfuDqt2oAVexgpjDHg9yB7UpCKSmEES7\"") +
+            "\nUsing json rpc\n"
+            + HelpExampleRpc("setdonationaddress", "\"t1HwfuDqt2oAVexgpjDHg9yB7UpCKSmEES7\"")
+        );
+
+    std::string address = params[0].get_str();
+
+    // Validate the address
+    KeyIO keyIO(Params());
+    auto decodedAddr = keyIO.DecodePaymentAddress(address);
+
+    if (!decodedAddr.has_value()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    // Ensure it's a transparent address (P2PKH or P2SH)
+    if (!std::holds_alternative<CKeyID>(decodedAddr.value()) &&
+        !std::holds_alternative<CScriptID>(decodedAddr.value())) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Address must be a transparent P2PKH (t1) or P2SH (t2) address");
+    }
+
+    mapArgs["-donationaddress"] = address;
+
+    int percentage = GetArg("-donationpercentage", 0);
+    if (percentage > 0) {
+        LogPrintf("User set developer fund address to %s (%d%% donation active)\n", address, percentage);
+    } else {
+        LogPrintf("User set developer fund address to %s (donations currently disabled)\n", address);
+    }
 
     return NullUniValue;
 }
@@ -502,7 +633,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             "  \"sizelimit\" : n,                   (numeric) limit of block size\n"
             "  \"curtime\" : ttt,                   (numeric) current timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"bits\" : \"xxx\",                    (string) compressed target of next block\n"
-            "  \"height\" : n                       (numeric) The height of the next block\n"
+            "  \"height\" : n,                      (numeric) The height of the next block\n"
+            "  \"randomxseedheight\" : n,           (numeric) The block height whose hash is used as RandomX seed\n"
+            "  \"randomxseedhash\" : \"xxxx\",        (string) The RandomX seed hash to use (block hash or 0x08... for genesis)\n"
+            "  \"randomxnextseedhash\" : \"xxxx\"     (string, optional) The next epoch's seed hash (for pre-caching)\n"
             "}\n"
 
             "\nExamples:\n"
@@ -825,6 +959,53 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
 
+    // Add RandomX seed information for miners (matching Monero's getblocktemplate)
+    uint64_t nextBlockHeight = pindexPrev->nHeight + 1;
+    uint64_t seedHeight = RandomX_SeedHeight(nextBlockHeight);
+
+    // Add current seed height
+    result.pushKV("randomxseedheight", seedHeight);
+
+    // Add current seed hash (in internal byte order, no reversal)
+    if (seedHeight == 0) {
+        // Genesis epoch: use 0x08 followed by zeros
+        uint256 genesisSeed;
+        genesisSeed.SetNull();
+        *genesisSeed.begin() = 0x08;
+        result.pushKV("randomxseedhash", HexStr(genesisSeed.begin(), genesisSeed.end()));
+    } else {
+        // Get seed block hash
+        CBlockIndex* pindexSeed = chainActive[seedHeight];
+        if (pindexSeed) {
+            uint256 seedHash = pindexSeed->GetBlockHash();
+            result.pushKV("randomxseedhash", HexStr(seedHash.begin(), seedHash.end()));
+        } else {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Could not find RandomX seed block");
+        }
+    }
+
+    // Add next seed hash if we're approaching an epoch change
+    // This allows miners to pre-cache the next epoch's dataset
+    uint64_t nextSeedHeight = RandomX_SeedHeight(nextBlockHeight + RANDOMX_SEEDHASH_EPOCH_LAG);
+    if (nextSeedHeight != seedHeight) {
+        // We're in the lag period before an epoch change
+        if (nextSeedHeight == 0) {
+            // Next epoch uses genesis seed
+            uint256 genesisSeed;
+            genesisSeed.SetNull();
+            *genesisSeed.begin() = 0x08;
+            result.pushKV("randomxnextseedhash", HexStr(genesisSeed.begin(), genesisSeed.end()));
+        } else {
+            // Get next seed block hash
+            CBlockIndex* pindexNextSeed = chainActive[nextSeedHeight];
+            if (pindexNextSeed) {
+                uint256 nextSeedHash = pindexNextSeed->GetBlockHash();
+                result.pushKV("randomxnextseedhash", HexStr(nextSeedHash.begin(), nextSeedHash.end()));
+            }
+            // If next seed block doesn't exist yet, just don't include the field
+        }
+    }
+
     return result;
 }
 
@@ -1040,6 +1221,8 @@ static const CRPCCommand commands[] =
 #ifdef ENABLE_MINING
     { "generating",         "getgenerate",            &getgenerate,            true  },
     { "generating",         "setgenerate",            &setgenerate,            true  },
+    { "generating",         "setdonationpercentage",  &setdonationpercentage,  true  },
+    { "generating",         "setdonationaddress",     &setdonationaddress,     true  },
     { "generating",         "generate",               &generate,               true  },
 #endif
 };
