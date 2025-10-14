@@ -4,7 +4,7 @@ Notable changes
 Hierarchical Deterministic Key Generation for Sapling
 -----------------------------------------------------
 All Sapling addresses will use hierarchical deterministic key generation
-according to ZIP 32 (keypath m/32'/133'/k' on mainnet). Transparent and
+according to ZIP 32 (keypath m/32'/8133'/k' on mainnet). Transparent and
 Sprout addresses will still use traditional key generation.
 
 Backups of HD wallets, regardless of when they have been created, can

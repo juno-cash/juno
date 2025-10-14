@@ -1,85 +1,210 @@
-Zcash 6.10.0
-<img align="right" width="120" height="80" src="doc/imgs/logo.png">
-===========
+# Juno
 
-What is Zcash?
---------------
+Privacy-focused cryptocurrency with CPU mining (RandomX) and a 21M coin supply.
 
-[Zcash](https://z.cash/) is HTTPS for money.
+Forked from Zcash v6.10.0
 
-Initially based on Bitcoin's design, Zcash has been developed from
-the Zerocash protocol to offer a far higher standard of privacy and
-anonymity. It uses a sophisticated zero-knowledge proving scheme to
-preserve confidentiality and hide the connections between shielded
-transactions. More technical details are available in our
-[Protocol Specification](https://zips.z.cash/protocol/protocol.pdf).
+## Features
 
-## The `zcashd` Full Node
+- **RandomX mining** - CPU-optimized, ASIC-resistant (replaces Equihash)
+- **21M coin supply** - Capped at block 9,991,569
+- **100% to miners** - No developer tax or funding streams
+- **60-second blocks** - Constant block time
+- **Orchard privacy** - Mandatory shielded transactions after block 8
+- **Fair launch** - No pre-mine, gradual ramp-up emission
+- **1000 block maturity** - Enhanced security for CPU mining
 
-This repository hosts the `zcashd` software, a Zcash consensus node
-implementation. It downloads and stores the entire history of Zcash
-transactions. Depending on the speed of your computer and network
-connection, the synchronization process could take several days.
+## Quick Start
 
-<p align="center">
-  <img src="doc/imgs/zcashd_screen.gif" height="500">
-</p>
+### Build
 
-The `zcashd` code is derived from a source fork of
-[Bitcoin Core](https://github.com/bitcoin/bitcoin). The code was forked
-initially from Bitcoin Core v0.11.2, and the two codebases have diverged
-substantially.
-
-#### :lock: Security Warnings
-
-See important security warnings on the
-[Security Information page](https://z.cash/support/security/).
-
-**Zcash is experimental and a work in progress.** Use it at your own risk.
-
-####  :ledger: Deprecation Policy
-
-This release is considered deprecated 16 weeks after the release day. There
-is an automatic deprecation shutdown feature which will halt the node some
-time after this 16-week period. The automatic feature is based on block
-height.
-
-## Other Zcash Implementations
-
-The [Zebra](https://github.com/ZcashFoundation/zebra) project offers a
-different Zcash consensus node implementation, written largely from the
-ground up.
-
-## Getting Started
-
-Please see our [user
-guide](https://zcash.readthedocs.io/en/latest/rtd_pages/rtd_docs/user_guide.html)
-for instructions on joining the main Zcash network.
-
-### Need Help?
-
-* :blue_book: See the documentation at the [ReadTheDocs](https://zcash.readthedocs.io)
-  for help and more information.
-* :incoming_envelope: Ask for help on the [Zcash forum](https://forum.zcashcommunity.com/).
-* :speech_balloon: Join our community on the [Zcash Global Discord](https://discord.com/invite/zcash).
-* 🧑‍🎓: Learn at [ZecHub](https://zechub.wiki/)
-
-Participation in the Zcash project is subject to a
-[Code of Conduct](code_of_conduct.md).
-
-### Building
-
-Build Zcash along with most dependencies from source by running the following command:
-
-```
+```bash
 ./zcutil/build.sh -j$(nproc)
 ```
 
-Currently, Zcash is only officially supported on Debian and Ubuntu. See the
-[Debian / Ubuntu build page](https://zcash.readthedocs.io/en/latest/rtd_pages/Debian-Ubuntu-build.html)
-for detailed instructions.
+### Mainnet
 
-License
--------
+Create `~/.juno/juno.conf`:
+```
+rpcuser=user
+rpcpassword=STRONG_PASSWORD
+```
 
-For license information see the file [COPYING](COPYING).
+```bash
+./src/junod -daemon
+./src/juno-cli getblockchaininfo
+```
+
+## Mining
+
+### Enable Mining
+
+In `juno.conf`:
+```
+gen=1
+```
+
+Or via RPC:
+```bash
+./src/juno-cli setgenerate true
+./src/juno-cli getmininginfo
+```
+
+### Spend Mined Coins
+
+1. Wait 1000 blocks for maturity
+2. Shield to Orchard:
+```bash
+./src/juno-cli z_shieldcoinbase "*" YOUR_ORCHARD_ADDRESS
+```
+3. Send from Orchard:
+```bash
+./src/juno-cli z_sendmany FROM_ORCHARD '[{"address":"TO_ORCHARD","amount":1.0}]'
+```
+
+## Common Commands
+
+```bash
+# Get new account and address
+./src/juno-cli z_getnewaccount
+./src/juno-cli z_getaddressforaccount 0
+
+# Check balance
+./src/juno-cli z_getbalanceforaccount 0
+
+# List transactions
+./src/juno-cli listtransactions
+
+# Stop daemon
+./src/juno-cli stop
+```
+
+---
+
+## Network Parameters
+
+### Networks
+
+| Network | Magic Bytes | P2P Port | RPC Port | Address Prefix |
+|---------|------------|----------|----------|----------------|
+| Mainnet | 0xf9beb4d9 | 8234 | 8233 | jm |
+| Testnet | 0x0b110907 | 18234 | 18233 | jmtest |
+| Regtest | 0xfabfb5da | 18345 | 18344 | jmregtest |
+
+### Consensus
+
+| Parameter | Value |
+|-----------|-------|
+| Block Time | 60s |
+| Coinbase Maturity | 1000 blocks |
+| Max Supply | 21M JMR |
+| PoW Algorithm | RandomX |
+| Miner Reward | 100% |
+| BIP-44 Coin Type | 8133 |
+
+---
+
+## Emission Schedule
+
+### Maximum Supply
+- **Total**: 21,000,000 coins
+- **Supply exhausted**: Block 9,991,569
+- **No subsidy after cap**
+
+### Schedule Phases
+
+**Phase 0: Genesis Buffer (0-9)**
+- 0 JMR - Prevents pre-mine
+
+**Phase 1: Ramp-Up (10-30,009)**
+- Doubles every 5,000 blocks: 0.25 → 0.5 → 1 → 2 → 4 → 8 coins
+- Duration: ~20.8 days
+
+**Plateau (30,010-100,009)**
+- 10 coins per block
+- Duration: ~48.6 days
+
+**Phase 2: First Year (100,010-625,609)**
+- 8 JMR per block
+- Duration: 365 days (525,600 blocks)
+- Total emission: ~4.2M coins
+
+**Phase 3: 4-Year Halvings (625,610-9,991,569)**
+- Starts at 4 coins (pre-halved from 8)
+- Halves every 2,103,840 blocks (4 years)
+- Schedule: 4 → 2 → 1 → 0.5 → 0.25 → ...
+- Duration: ~44.5 years to supply cap
+
+### Transaction Rules (After Block 8)
+- **Coinbase**: Transparent outputs only
+- **Coinbase spends**: Must go to Orchard
+- **All other transactions**: Orchard-to-Orchard only
+- **Forbidden**: Sprout outputs, Sapling outputs (except migration), transparent outputs (except coinbase)
+
+### Economics Changes
+- **Removed**: All funding streams (ZIP207/ZIP214)
+- **Removed**: Founders' reward, Canopy streams, NU6 lockbox
+- **Result**: 100% of block subsidy + fees to miners
+
+### Optional Developer Donation
+
+You can throw some crumbs at the developers if you want
+
+- **Default**: Off (0%)
+- **Config (juno.conf)**: `donationpercentage=0-100` and `donationaddress=<address>` 
+- **RPC**: `setdonationpercentage X` and `setdonationaddress <address>` 
+- **Behavior**: When enabled, splits coinbase into two outputs (miner + donation)
+- **Address**: Default is `t1HwfuDqt2oAVexgpjDHg9yB7UpCKSmEES7` (mainnet)
+
+### RPC Changes
+- **Renamed**: Transparent-only commands prefixed with `t_` (t_getbalance, t_sendmany, etc.)
+- **Enhanced getblocktemplate**: Includes RandomX seed information
+
+### Build System
+- **RandomX integration**: Custom Makefile rules for x86 assembly
+- **Rust patches**: Custom zcash_protocol crate for address HRPs (depends/patches/zcash_protocol/)
+- **Platform**: Optimized for x86_64 Linux (ARM64/RISC-V JIT removed)
+
+---
+
+---
+
+## Security
+
+### Important Warnings
+- **Experimental software** - Use at your own risk
+- **Not Zcash** - Completely separate network with different blockchain
+- **Incompatible addresses** - Never send Zcash to Juno or vice versa
+- **Network isolation** - Different magic bytes prevent accidental Zcash connections
+- **Limited testing** - Not audited for production use
+
+### Best Practices
+- Use strong RPC passwords (32+ characters)
+- Restrict rpcallowip to localhost or trusted IPs
+- Never expose RPC port to public internet
+- Encrypt wallet: `./src/juno-cli encryptwallet PASSPHRASE`
+- Backup wallet
+- Test on regtest/testnet before mainnet
+
+### Known Considerations
+1. Platform support limited to Linux x86_64
+
+---
+
+## License
+
+MIT License - See [COPYING](COPYING)
+
+Based on:
+- **Zcash** v6.10.0
+- **RandomX** from Monero (BSD 3-Clause License)
+- **Bitcoin Core** (original foundation)
+
+---
+
+## Credits
+
+- **Juno Cash developers** -- This implementation
+- **Zcash developers** - Base implementation
+- **Monero developers** - RandomX algorithm
+- **Bitcoin Core developers** - Original cryptocurrency
