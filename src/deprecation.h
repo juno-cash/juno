@@ -17,7 +17,7 @@
 static const int APPROX_RELEASE_HEIGHT = 3084976;
 static const int RELEASE_TO_DEPRECATION_WEEKS = 16;
 static const int EXPECTED_BLOCKS_PER_HOUR = 3600 / Consensus::POST_BLOSSOM_POW_TARGET_SPACING;
-static_assert(EXPECTED_BLOCKS_PER_HOUR == 48, "The value of Consensus::POST_BLOSSOM_POW_TARGET_SPACING was chosen such that this assertion holds.");
+static_assert(EXPECTED_BLOCKS_PER_HOUR == 60, "Fork uses 60s block spacing, so 60 blocks per hour.");
 static const int ACTIVATION_TO_DEPRECATION_BLOCKS = (RELEASE_TO_DEPRECATION_WEEKS * 7 * 24 * EXPECTED_BLOCKS_PER_HOUR);
 static const int DEPRECATION_HEIGHT = APPROX_RELEASE_HEIGHT + ACTIVATION_TO_DEPRECATION_BLOCKS;
 

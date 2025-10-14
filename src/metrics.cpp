@@ -274,18 +274,18 @@ std::string DisplayHashRate(double value)
 {
     double coef = 1.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f Sol/s"), value);
+        return strprintf(_("%.3f H/s"), value);
     coef *= 1000.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f kSol/s"), value / coef);
+        return strprintf(_("%.3f kH/s"), value / coef);
     coef *= 1000.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f MSol/s"), value / coef);
+        return strprintf(_("%.3f MH/s"), value / coef);
     coef *= 1000.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f GSol/s"), value / coef);
+        return strprintf(_("%.3f GH/s"), value / coef);
     coef *= 1000.0;
-    return strprintf(_("%.3f TSol/s"), value / coef);
+    return strprintf(_("%.3f TH/s"), value / coef);
 }
 
 std::optional<int64_t> SecondsLeftToNextEpoch(const Consensus::Params& params, int currentHeight)
@@ -402,9 +402,9 @@ int printStats(MetricsStats stats, bool isScreen, bool mining)
     }
     std::cout << "           " << _("Next upgrade") << " | " << strUpgradeTime << std::endl;
     std::cout << "            " << _("Connections") << " | " << stats.connections << std::endl;
-    std::cout << "  " << _("Network solution rate") << " | " << DisplayHashRate(stats.netsolps) << std::endl;
+    std::cout << "  " << _("Network hash rate") << " | " << DisplayHashRate(stats.netsolps) << std::endl;
     if (mining && miningTimer.running()) {
-        std::cout << "    " << _("Local solution rate") << " | " << DisplayHashRate(localsolps) << std::endl;
+        std::cout << "    " << _("Local hash rate") << " | " << DisplayHashRate(localsolps) << std::endl;
         lines++;
     }
     std::cout << std::endl;
@@ -421,8 +421,8 @@ int printMiningStatus(bool mining)
     if (mining) {
         auto nThreads = miningTimer.threadCount();
         if (nThreads > 0) {
-            std::cout << strprintf(_("You are mining with the %s solver on %d threads."),
-                                   GetArg("-equihashsolver", "default"), nThreads) << std::endl;
+            std::cout << strprintf(_("You are mining with RandomX on %d threads."),
+                                   nThreads) << std::endl;
         } else {
             bool fvNodesEmpty;
             {
@@ -440,7 +440,7 @@ int printMiningStatus(bool mining)
         lines++;
     } else if (Params().NetworkIDString() != "main") {
         std::cout << _("You are currently not mining.") << std::endl;
-        std::cout << _("To enable mining, add 'gen=1' to your zcash.conf and restart.") << std::endl;
+        std::cout << _("To enable mining, add 'gen=1' to your juno.conf and restart.") << std::endl;
         lines += 2;
     }
     std::cout << std::endl;
@@ -473,7 +473,7 @@ int printMetrics(size_t cols, bool mining)
     }
 
     if (mining && loaded) {
-        std::cout << "- " << strprintf(_("You have completed %d Equihash solver runs."), ehSolverRuns.get()) << std::endl;
+        std::cout << "- " << strprintf(_("You have completed %d RandomX hashes."), ehSolverRuns.get()) << std::endl;
         lines++;
 
         int mined = 0;
@@ -614,16 +614,18 @@ void ThreadShowMetricsScreen()
         // Clear screen
         std::cout << "\e[2J";
 
-        // Print art
-        std::cout << METRICS_ART << std::endl;
+        // Header
+        std::cout << "  Juno (Moneta) " << FormatFullVersion() << " - " << WhichNetwork() << " node" << std::endl;
+        std::cout << "  Privacy Money for All" << std::endl;
         std::cout << std::endl;
-
-        // Thank you text
-        std::cout << strprintf(_("Thank you for running a %s zcashd %s node!"), WhichNetwork(), FormatFullVersion()) << std::endl;
-        std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
 
         // Privacy notice text
         std::cout << PrivacyInfo();
+        std::cout << std::endl;
+
+        // Donation message
+        std::cout << "  Please consider donating a few percent of your mining rewards to support development" << std::endl;
+        std::cout << "  add donationpercentage=5 in your ~/.juno/juno.conf (example 5 percent)" << std::endl;
         std::cout << std::endl;
     }
 
@@ -678,7 +680,7 @@ void ThreadShowMetricsScreen()
             // Explain how to exit
             std::cout << "[";
 #ifdef WIN32
-            std::cout << _("'zcash-cli.exe stop' to exit");
+            std::cout << _("'juno-cli.exe stop' to exit");
 #else
             std::cout << _("Press Ctrl+C to exit");
 #endif

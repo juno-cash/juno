@@ -73,8 +73,8 @@
 
 using namespace std;
 
-const char * const BITCOIN_CONF_FILENAME = "zcash.conf";
-const char * const BITCOIN_PID_FILENAME = "zcashd.pid";
+const char * const BITCOIN_CONF_FILENAME = "juno.conf";
+const char * const BITCOIN_PID_FILENAME = "junod.pid";
 
 CCriticalSection cs_args;
 map<string, string> mapArgs;
@@ -226,13 +226,13 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 
 fs::path GetDefaultDataDir()
 {
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Zcash
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Zcash
-    // Mac: ~/Library/Application Support/Zcash
-    // Unix: ~/.zcash
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Juno
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Juno
+    // Mac: ~/Library/Application Support/Juno
+    // Unix: ~/.juno
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Zcash";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Juno";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -244,10 +244,10 @@ fs::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "Zcash";
+    return pathRet / "Juno";
 #else
     // Unix
-    return pathRet / ".zcash";
+    return pathRet / ".juno";
 #endif
 #endif
 }
@@ -259,15 +259,15 @@ static CCriticalSection csPathCached;
 
 static fs::path ZC_GetDefaultBaseParamsDir()
 {
-    // Copied from GetDefaultDataDir and adapter for zcash params.
+    // Copied from GetDefaultDataDir and adapter for juno params.
 
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\ZcashParams
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\ZcashParams
-    // Mac: ~/Library/Application Support/ZcashParams
-    // Unix: ~/.zcash-params
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\JunoParams
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\JunoParams
+    // Mac: ~/Library/Application Support/JunoParams
+    // Unix: ~/.juno-params
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "ZcashParams";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "JunoParams";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -279,10 +279,10 @@ static fs::path ZC_GetDefaultBaseParamsDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "ZcashParams";
+    return pathRet / "JunoParams";
 #else
     // Unix
-    return pathRet / ".zcash-params";
+    return pathRet / ".juno-params";
 #endif
 #endif
 }
@@ -654,9 +654,7 @@ void SetThreadPriority(int nPriority)
 
 std::string PrivacyInfo()
 {
-    return "\n" +
-           FormatParagraph(strprintf(_("In order to ensure you are adequately protecting your privacy when using Zcash, please see <%s>."),
-                                     "https://z.cash/support/security/")) + "\n";
+    return "  https://juno.cash/\n";
 }
 
 std::string LicenseInfo()
