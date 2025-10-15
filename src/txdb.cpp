@@ -708,7 +708,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(
                 pindexNew->nTime          = diskindex.nTime;
                 pindexNew->nBits          = diskindex.nBits;
                 pindexNew->nNonce         = diskindex.nNonce;
-                // the Equihash solution will be loaded lazily from the dbindex entry
+                // Note: the Equihash/RandomX solution will be loaded lazily from the dbindex entry
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nCachedBranchId = diskindex.nCachedBranchId;
                 pindexNew->nTx            = diskindex.nTx;
@@ -723,11 +723,29 @@ bool CBlockTreeDB::LoadBlockIndexGuts(
                 pindexNew->hashChainHistoryRoot = diskindex.hashChainHistoryRoot;
                 pindexNew->hashAuthDataRoot = diskindex.hashAuthDataRoot;
 
-                // Check the block hash against the required difficulty as encoded in the
+                // Check the RandomX hash against the required difficulty as encoded in the
                 // nBits field. The probability of this succeeding randomly is low enough
                 // that it is a useful check to detect logic or disk storage errors.
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
-                    return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
+                //
+                // Skip genesis block (height 0) as it's assumed valid by definition.
+                // For RandomX blocks, nSolution contains the RandomX hash (32 bytes).
+                // We extract and verify the stored RandomX hash meets the difficulty target.
+                if (pindexNew->nHeight > 0) {
+                    if (diskindex.HasSolution()) {
+                        std::vector<unsigned char> solution = diskindex.GetSolution();
+                        if (solution.size() == 32) {
+                            // Extract the stored RandomX hash from nSolution
+                            uint256 randomxHash;
+                            memcpy(randomxHash.begin(), solution.data(), 32);
+                            if (!CheckProofOfWork(randomxHash, pindexNew->nBits, Params().GetConsensus()))
+                                return error("LoadBlockIndex(): CheckProofOfWork failed: %s", diskindex.ToString());
+                        } else {
+                            return error("LoadBlockIndex(): Invalid RandomX solution size (%d bytes, expected 32): %s", solution.size(), diskindex.ToString());
+                        }
+                    } else {
+                        return error("LoadBlockIndex(): Missing RandomX solution: %s", diskindex.ToString());
+                    }
+                }
 
                 // ZIP 221 consistency checks
                 // These checks should only be performed for block index entries marked

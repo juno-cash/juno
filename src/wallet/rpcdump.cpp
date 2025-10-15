@@ -86,22 +86,22 @@ UniValue importprivkey(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "importprivkey \"zcashprivkey\" ( \"label\" rescan )\n"
-            "\nAdds a private key (as returned by dumpprivkey) to your wallet.\n"
+            "t_importprivkey \"zcashprivkey\" ( \"label\" rescan )\n"
+            "\nAdds a private key (as returned by t_dumpprivkey) to your wallet.\n"
             "\nArguments:\n"
-            "1. \"zcashprivkey\"   (string, required) The private key (see dumpprivkey)\n"
+            "1. \"zcashprivkey\"   (string, required) The private key (see t_dumpprivkey)\n"
             "2. \"label\"            (string, optional, default=\"\") An optional label\n"
             "3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n"
             "\nNote: This call can take a long time to complete if rescan is true.\n"
             "\nExamples:\n"
             "\nDump a private key\n"
-            + HelpExampleCli("dumpprivkey", "\"myaddress\"") +
+            + HelpExampleCli("t_dumpprivkey", "\"myaddress\"") +
             "\nImport the private key with rescan\n"
-            + HelpExampleCli("importprivkey", "\"mykey\"") +
+            + HelpExampleCli("t_importprivkey", "\"mykey\"") +
             "\nImport using a label and without rescan\n"
-            + HelpExampleCli("importprivkey", "\"mykey\" \"testing\" false") +
+            + HelpExampleCli("t_importprivkey", "\"mykey\" \"testing\" false") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("importprivkey", "\"mykey\", \"testing\", false")
+            + HelpExampleRpc("t_importprivkey", "\"mykey\", \"testing\", false")
         );
 
     if (fPruneMode)
@@ -196,7 +196,7 @@ UniValue importaddress(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 1 || params.size() > 4)
         throw runtime_error(
-            "importaddress \"address\" ( \"label\" rescan p2sh )\n"
+            "t_importaddress \"address\" ( \"label\" rescan p2sh )\n"
             "\nAdds a script (in hex) or address that can be watched as if it were in your wallet but cannot be used to spend.\n"
             "\nArguments:\n"
             "1. \"script\"           (string, required) The hex-encoded script (or address)\n"
@@ -204,16 +204,16 @@ UniValue importaddress(const UniValue& params, bool fHelp)
             "3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n"
             "4. p2sh                 (boolean, optional, default=false) Add the P2SH version of the script as well\n"
             "\nNote: This call can take a long time to complete if rescan is true.\n"
-            "If you have the full public key, you should call importpubkey instead of this.\n"
+            "If you have the full public key, you should call t_importpubkey instead of this.\n"
             "\nNote: If you import a non-standard raw script in hex form, outputs sending to it will be treated\n"
             "as change, and not show up in many RPCs.\n"
             "\nExamples:\n"
             "\nImport a script with rescan\n"
-            + HelpExampleCli("importaddress", "\"myscript\"") +
+            + HelpExampleCli("t_importaddress", "\"myscript\"") +
             "\nImport using a label without rescan\n"
-            + HelpExampleCli("importaddress", "\"myscript\" \"testing\" false") +
+            + HelpExampleCli("t_importaddress", "\"myscript\" \"testing\" false") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("importaddress", "\"myscript\", \"testing\", false")
+            + HelpExampleRpc("t_importaddress", "\"myscript\", \"testing\", false")
         );
 
     if (fPruneMode)
@@ -266,7 +266,7 @@ UniValue importpubkey(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 1 || params.size() > 4)
         throw runtime_error(
-            "importpubkey \"pubkey\" ( \"label\" rescan )\n"
+            "t_importpubkey \"pubkey\" ( \"label\" rescan )\n"
             "\nAdds a public key (in hex) that can be watched as if it were in your wallet but cannot be used to spend.\n"
             "\nArguments:\n"
             "1. \"pubkey\"           (string, required) The hex-encoded public key\n"
@@ -275,11 +275,11 @@ UniValue importpubkey(const UniValue& params, bool fHelp)
             "\nNote: This call can take a long time to complete if rescan is true.\n"
             "\nExamples:\n"
             "\nImport a public key with rescan\n"
-            + HelpExampleCli("importpubkey", "\"mypubkey\"") +
+            + HelpExampleCli("t_importpubkey", "\"mypubkey\"") +
             "\nImport using a label without rescan\n"
-            + HelpExampleCli("importpubkey", "\"mypubkey\" \"testing\" false") +
+            + HelpExampleCli("t_importpubkey", "\"mypubkey\" \"testing\" false") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("importpubkey", "\"mypubkey\", \"testing\", false")
+            + HelpExampleRpc("t_importpubkey", "\"mypubkey\", \"testing\", false")
         );
 
     if (fPruneMode)
@@ -485,17 +485,17 @@ UniValue dumpprivkey(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "dumpprivkey \"t-addr\"\n"
+            "t_dumpprivkey \"t-addr\"\n"
             "\nReveals the private key corresponding to 't-addr'.\n"
-            "Then the importprivkey can be used with this output\n"
+            "Then the t_importprivkey can be used with this output\n"
             "\nArguments:\n"
             "1. \"t-addr\"   (string, required) The transparent address for the private key\n"
             "\nResult:\n"
             "\"key\"         (string) The private key\n"
             "\nExamples:\n"
-            + HelpExampleCli("dumpprivkey", "\"myaddress\"")
-            + HelpExampleCli("importprivkey", "\"mykey\"")
-            + HelpExampleRpc("dumpprivkey", "\"myaddress\"")
+            + HelpExampleCli("t_dumpprivkey", "\"myaddress\"")
+            + HelpExampleCli("t_importprivkey", "\"mykey\"")
+            + HelpExampleRpc("t_dumpprivkey", "\"myaddress\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -645,37 +645,9 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
     }
     file << "\n";
 
-    std::set<libzcash::SproutPaymentAddress> sproutAddresses;
-    pwalletMain->GetSproutPaymentAddresses(sproutAddresses);
+    // Sprout and Sapling are not supported in Orchard-only mode
     file << "\n";
-    file << "# Zkeys\n";
-    file << "\n";
-    for (auto addr : sproutAddresses) {
-        libzcash::SproutSpendingKey key;
-        if (pwalletMain->GetSproutSpendingKey(addr, key)) {
-            std::string strTime = EncodeDumpTime(pwalletMain->mapSproutZKeyMetadata[addr].nCreateTime);
-            file << strprintf("%s %s # zaddr=%s\n", keyIO.EncodeSpendingKey(key), strTime, keyIO.EncodePaymentAddress(addr));
-        }
-    }
-    std::set<libzcash::SaplingPaymentAddress> saplingAddresses;
-    pwalletMain->GetSaplingPaymentAddresses(saplingAddresses);
-    file << "\n";
-    file << "# Sapling keys\n";
-    file << "\n";
-    for (auto addr : saplingAddresses) {
-        libzcash::SaplingExtendedSpendingKey extsk;
-        if (pwalletMain->GetSaplingExtendedSpendingKey(addr, extsk)) {
-            auto ivk = extsk.expsk.full_viewing_key().in_viewing_key();
-            CKeyMetadata keyMeta = pwalletMain->mapSaplingZKeyMetadata[ivk];
-            std::string strTime = EncodeDumpTime(keyMeta.nCreateTime);
-            file << strprintf("%s %s", keyIO.EncodeSpendingKey(extsk), strTime);
-            // Keys imported with z_importkey do not have zip32 metadata
-            if (!(keyMeta.hdKeypath.empty() || keyMeta.seedFp.IsNull())) {
-                file << strprintf(" %s %s", keyMeta.hdKeypath, keyMeta.seedFp.GetHex());
-            }
-            file << strprintf(" # zaddr=%s\n", keyIO.EncodePaymentAddress(addr));
-        }
-    }
+    file << "# Note: Sprout and Sapling keys are not exported (Orchard-only chain)\n";
     file << "\n";
 
     file << "# End of dump\n";
@@ -693,19 +665,12 @@ UniValue z_importkey(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
             "z_importkey \"zkey\" ( rescan startHeight )\n"
-            "\nAdds a zkey (as returned by z_exportkey) to your wallet."
-            "\nImport of Orchard keys is not supported.\n"
+            "\nNOT SUPPORTED: Individual key import is not supported for Orchard.\n"
+            "\nUse the emergency recovery phrase to restore your wallet instead.\n"
             "\nArguments:\n"
             "1. \"zkey\"             (string, required) The zkey (see z_exportkey)\n"
             "2. rescan             (string, optional, default=\"whenkeyisnew\") Rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
             "3. startHeight        (numeric, optional, default=0) Block height to start rescan from\n"
-            "\nNote: This call can take a long time to complete if rescan is true.\n"
-            "\nResult:\n"
-            "{\n"
-            "  \"address_type\" : \"xxxx\",                 (string) \"sprout\" or \"sapling\"\n"
-            "  \"type\" : \"xxxx\",                         (string) \"sprout\" or \"sapling\" (DEPRECATED, legacy attribute)\n"
-            "  \"address\" : \"address|DefaultAddress\",    (string) The address corresponding to the spending key (for Sapling, this is the default address).\n"
-            "}\n"
             "\nExamples:\n"
             "\nExport a zkey\n"
             + HelpExampleCli("z_exportkey", "\"myaddress\"") +
@@ -718,6 +683,11 @@ UniValue z_importkey(const UniValue& params, bool fHelp)
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("z_importkey", "\"mykey\", \"no\"")
         );
+
+    // Reject all individual key imports (Orchard-only constraint)
+    throw JSONRPCError(RPC_WALLET_ERROR,
+        "Individual key import is not supported for Orchard. "
+        "Use the emergency recovery phrase to restore your wallet instead.");
 
     if (fPruneMode)
         throw JSONRPCError(RPC_WALLET_ERROR, "Importing keys is disabled in pruned mode");
@@ -804,18 +774,11 @@ UniValue z_importviewingkey(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
             "z_importviewingkey \"vkey\" ( rescan startHeight )\n"
-            "\nAdds a viewing key (as returned by z_exportviewingkey) to your wallet.\n"
+            "\nNOT SUPPORTED: Individual viewing key import is not supported for Orchard.\n"
             "\nArguments:\n"
             "1. \"vkey\"             (string, required) The viewing key (see z_exportviewingkey)\n"
             "2. rescan             (string, optional, default=\"whenkeyisnew\") Rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
             "3. startHeight        (numeric, optional, default=0) Block height to start rescan from\n"
-            "\nNote: This call can take a long time to complete if rescan is true. Import of Unified viewing keys is not yet supported.\n"
-            "\nResult:\n"
-            "{\n"
-            "  \"address_type\" : \"xxxx\",                 (string) \"sprout\" or \"sapling\"\n"
-            "  \"type\" : \"xxxx\",                         (string) \"sprout\" or \"sapling\" (DEPRECATED, legacy attribute)\n"
-            "  \"address\" : \"address|DefaultAddress\",    (string) The address corresponding to the viewing key (for Sapling, this is the default address).\n"
-            "}\n"
             "\nExamples:\n"
             "\nImport a viewing key\n"
             + HelpExampleCli("z_importviewingkey", "\"vkey\"") +
@@ -828,6 +791,10 @@ UniValue z_importviewingkey(const UniValue& params, bool fHelp)
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("z_importviewingkey", "\"vkey\", \"no\"")
         );
+
+    // Reject all individual viewing key imports (Orchard-only constraint)
+    throw JSONRPCError(RPC_WALLET_ERROR,
+        "Individual viewing key import is not supported for Orchard.");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -947,20 +914,14 @@ UniValue z_exportkey(const UniValue& params, bool fHelp)
             }
         },
         [&](const libzcash::SproutPaymentAddress& addr) {
-            libzcash::SproutSpendingKey key;
-            if (pwalletMain->GetSproutSpendingKey(addr, key)) {
-                return keyIO.EncodeSpendingKey(key);
-            } else {
-                throw JSONRPCError(RPC_WALLET_ERROR, "Wallet does not hold the private spending key for this Sprout address");
-            }
+            throw JSONRPCError(RPC_WALLET_ERROR,
+                "Sprout addresses are not supported. This chain only supports Orchard.");
+            return std::string(); //unreachable, here to make the compiler happy
         },
         [&](const libzcash::SaplingPaymentAddress& addr) {
-            libzcash::SaplingExtendedSpendingKey extsk;
-            if (pwalletMain->GetSaplingExtendedSpendingKey(addr, extsk)) {
-                return keyIO.EncodeSpendingKey(extsk);
-            } else {
-                throw JSONRPCError(RPC_WALLET_ERROR, "Wallet does not hold the private spending key for this Sapling address");
-            }
+            throw JSONRPCError(RPC_WALLET_ERROR,
+                "Sapling addresses are not supported. This chain only supports Orchard.");
+            return std::string(); //unreachable, here to make the compiler happy
         },
         [&](const libzcash::UnifiedAddress& ua) {
             throw JSONRPCError(
@@ -983,8 +944,7 @@ UniValue z_exportviewingkey(const UniValue& params, bool fHelp)
             "z_exportviewingkey \"zaddr\"\n"
             "\nReturns the full viewing key corresponding to 'zaddr' in the format specified by\n"
             "https://zips.z.cash/protocol/protocol.pdf#addressandkeyencoding.\n"
-            "z_importviewingkey can be used to import Sprout and Sapling exported in this format;\n"
-            "import of unified viewing keys is not yet supported.\n"
+            "\nNote: This chain only supports Orchard. Import of viewing keys is not supported.\n"
             "\nArguments:\n"
             "1. \"zaddr\"   (string, required) The zaddr for the viewing key\n"
             "\nResult:\n"
@@ -1005,6 +965,21 @@ UniValue z_exportviewingkey(const UniValue& params, bool fHelp)
     if (!address.has_value()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr");
     }
+
+    // Reject Sprout/Sapling addresses (Orchard-only constraint)
+    examine(address.value(), match {
+        [](const libzcash::SproutPaymentAddress&) {
+            throw JSONRPCError(RPC_WALLET_ERROR,
+                "Sprout addresses are not supported. This chain only supports Orchard.");
+        },
+        [](const libzcash::SaplingPaymentAddress&) {
+            throw JSONRPCError(RPC_WALLET_ERROR,
+                "Sapling addresses are not supported. This chain only supports Orchard.");
+        },
+        [](const auto&) {
+            // Orchard/UA/transparent allowed
+        }
+    });
 
     auto vk = std::visit(GetViewingKeyForPaymentAddress(pwalletMain), address.value());
     if (vk) {

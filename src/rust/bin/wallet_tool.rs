@@ -28,7 +28,7 @@ struct CliOptions {
 
     #[options(
         no_short,
-        help = "Specify configuration filename, relative to the data directory (default: zcash.conf)",
+        help = "Specify configuration filename, relative to the data directory (default: juno.conf)",
         meta = "FILENAME"
     )]
     conf: Option<String>,
@@ -80,7 +80,7 @@ struct CliOptions {
 }
 
 impl CliOptions {
-    fn to_zcash_cli_options(&self) -> Vec<String> {
+    fn to_juno_cli_options(&self) -> Vec<String> {
         iter::empty::<String>()
             .chain(self.conf.as_ref().map(|o| format!("-conf={}", o)))
             .chain(self.datadir.as_ref().map(|o| format!("-datadir={}", o)))
@@ -112,16 +112,16 @@ impl CliOptions {
 
 #[derive(Debug, Error)]
 enum WalletToolError {
-    #[error("zcash-cli executable not found")]
-    ZcashCliNotFound,
+    #[error("juno-cli executable not found")]
+    JunoCliNotFound,
 
-    #[error("Unexpected response from zcash-cli or zcashd")]
+    #[error("Unexpected response from juno-cli or junod")]
     UnexpectedResponse,
 
-    #[error("Could not connect to zcashd")]
-    ZcashdConnection,
+    #[error("Could not connect to junod")]
+    JunodConnection,
 
-    #[error("zcashd -exportdir option not set")]
+    #[error("junod -exportdir option not set")]
     ExportDirNotSet,
 
     #[error("Could not parse a unique recovery phrase from the export file")]
@@ -194,25 +194,25 @@ pub fn main() {
 }
 
 fn run(opts: &CliOptions) -> anyhow::Result<()> {
-    let cli_options: Vec<String> = opts.to_zcash_cli_options();
+    let cli_options: Vec<String> = opts.to_juno_cli_options();
 
     println!(concat!(
         "To reduce the risk of loss of funds, we're going to confirm that the\n",
-        "zcashd wallet is backed up reliably.\n\n",
+        "junod wallet is backed up reliably.\n\n",
         "  👛 ➜ 🗃️ \n"
     ));
 
-    println!("Checking that we can connect to zcashd...");
-    let zcash_cli = zcash_cli_path()?;
+    println!("Checking that we can connect to junod...");
+    let juno_cli = juno_cli_path()?;
 
     // Pass an invalid filename, "\x01", and use the error message to distinguish
-    // whether zcashd is running with the -exportdir option, running without that
+    // whether junod is running with the -exportdir option, running without that
     // option, or not running / cannot connect.
     let mut cli_args = cli_options.clone();
     cli_args.extend_from_slice(&["z_exportwallet".to_string(), "\x01".to_string()]);
-    let out = exec(&zcash_cli, &cli_args, None)?;
+    let out = exec(&juno_cli, &cli_args, None)?;
     let cli_err: Vec<_> = from_utf8(&out.stderr)
-        .with_context(|| "Output from zcash-cli was not UTF-8")?
+        .with_context(|| "Output from juno-cli was not UTF-8")?
         .lines()
         .map(|s| s.trim_end_matches('\r'))
         .collect();
@@ -221,9 +221,9 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
     if !cli_err.is_empty() {
         if cli_err[0].starts_with("Error reading configuration file") {
             println!(
-                "\nNo, we could not read the zcashd configuration file, expected to be at\n{:?}.",
-                Path::new(opts.datadir.as_ref().map_or("~/.zcash", |s| &s[..])).join(Path::new(
-                    opts.conf.as_ref().map_or("zcash.conf", |s| &s[..])
+                "\nNo, we could not read the junod configuration file, expected to be at\n{:?}.",
+                Path::new(opts.datadir.as_ref().map_or("~/.juno", |s| &s[..])).join(Path::new(
+                    opts.conf.as_ref().map_or("juno.conf", |s| &s[..])
                 )),
             );
             println!(concat!(
@@ -231,47 +231,47 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
                 "'-conf' options set correctly (see '--help' for details). Also make sure\n",
                 "that the current user has permission to read the configuration file.\n",
             ));
-            return Err(WalletToolError::ZcashdConnection.into());
+            return Err(WalletToolError::JunodConnection.into());
         }
         if cli_err[0].starts_with("error: couldn't connect") {
             println!(concat!(
-                "\nNo, we could not connect. zcashd might not be running; in that case\n",
+                "\nNo, we could not connect. junod might not be running; in that case\n",
                 "please start it. The '-exportdir' option should be set to the absolute\n",
                 "path of the directory you want to save the wallet export file to.\n\n",
-                "(Don't forget to restart zcashd without '-exportdir' after finishing\n",
+                "(Don't forget to restart junod without '-exportdir' after finishing\n",
                 "the backup, if running it long-term with that option is not desired\n",
                 "or would be a security hazard in your environment.)\n\n",
-                "If you believe zcashd is running, it might be using an unexpected port,\n",
+                "If you believe junod is running, it might be using an unexpected port,\n",
                 "address, or authentication options for the RPC interface, for example.\n",
-                "In that case try to connect to it using zcash-cli, and if successful,\n",
-                "use the same connection options for zcashd-wallet-tool (see '--help' for\n",
-                "accepted options) as for zcash-cli.\n"
+                "In that case try to connect to it using juno-cli, and if successful,\n",
+                "use the same connection options for junod-wallet-tool (see '--help' for\n",
+                "accepted options) as for juno-cli.\n"
             ));
-            return Err(WalletToolError::ZcashdConnection.into());
+            return Err(WalletToolError::JunodConnection.into());
         }
         if cli_err[0] == "error code: -28" {
             println!(concat!(
-                "\nNo, we could not connect. zcashd seems to be initializing; please try\n",
+                "\nNo, we could not connect. junod seems to be initializing; please try\n",
                 "again once it has finished.\n",
             ));
-            return Err(WalletToolError::ZcashdConnection.into());
+            return Err(WalletToolError::JunodConnection.into());
         }
     }
 
     const REMINDER_MSG: &str = concat!(
-        "\n\nPlease start or restart zcashd with '-exportdir' set to the absolute\n",
+        "\n\nPlease start or restart junod with '-exportdir' set to the absolute\n",
         "path of the directory you want to save the wallet export file to.\n",
-        "(Don't forget to restart zcashd without '-exportdir' after finishing\n",
+        "(Don't forget to restart junod without '-exportdir' after finishing\n",
         "the backup, if running it long-term with that option is not desired\n",
         "or would be a security hazard in your environment.)\n",
     );
 
     if cli_err.len() >= 3
         && cli_err[0] == "error code: -4"
-        && cli_err[2].contains("zcashd -exportdir")
+        && cli_err[2].contains("junod -exportdir")
     {
         println!(
-            "\nIt looks like zcashd is running without the '-exportdir' option.{}",
+            "\nIt looks like junod is running without the '-exportdir' option.{}",
             REMINDER_MSG
         );
         return Err(WalletToolError::ExportDirNotSet.into());
@@ -281,7 +281,7 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
         && cli_err[2].starts_with("Filename is invalid"))
     {
         println!(
-            "\nThere was an unexpected response from zcash-cli or zcashd:\n> {}{}",
+            "\nThere was an unexpected response from juno-cli or junod:\n> {}{}",
             cli_err.join("\n> "),
             REMINDER_MSG,
         );
@@ -318,9 +318,9 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
 
         let mut cli_args = cli_options.clone();
         cli_args.extend_from_slice(&["z_exportwallet".to_string(), filename.to_string()]);
-        let out = exec(&zcash_cli, &cli_args, None)?;
+        let out = exec(&juno_cli, &cli_args, None)?;
         let cli_err: Vec<_> = from_utf8(&out.stderr)
-            .with_context(|| "Output from zcash-cli was not UTF-8")?
+            .with_context(|| "Output from juno-cli was not UTF-8")?
             .lines()
             .map(|s| s.trim_end_matches('\r'))
             .collect();
@@ -342,7 +342,7 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
     };
 
     let cli_out: Vec<_> = from_utf8(&out.stdout)
-        .with_context(|| "Output from zcash-cli was not UTF-8")?
+        .with_context(|| "Output from juno-cli was not UTF-8")?
         .lines()
         .map(|s| s.trim_end_matches('\r'))
         .collect();
@@ -458,10 +458,10 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
 
     let mut cli_args = cli_options;
     cli_args.extend_from_slice(&["-stdin".to_string(), "walletconfirmbackup".to_string()]);
-    exec(&zcash_cli, &cli_args, Some(phrase))
+    exec(&juno_cli, &cli_args, Some(phrase))
         .and_then(|out| {
             let cli_err: Vec<_> = from_utf8(&out.stderr)
-                .with_context(|| "Output from zcash-cli was not UTF-8")?
+                .with_context(|| "Output from juno-cli was not UTF-8")?
                 .lines()
                 .map(|s| s.trim_end_matches('\r'))
                 .collect();
@@ -469,22 +469,22 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
 
             if !cli_err.is_empty() {
                 if cli_err[0].starts_with("error: couldn't connect") {
-                    println!("\nWe could not connect to zcashd; it may have exited.");
-                    return Err(WalletToolError::ZcashdConnection.into());
+                    println!("\nWe could not connect to junod; it may have exited.");
+                    return Err(WalletToolError::JunodConnection.into());
                 } else {
                     println!(
-                        "\nThere was an unexpected response from zcash-cli or zcashd:\n> {}",
+                        "\nThere was an unexpected response from juno-cli or junod:\n> {}",
                         cli_err.join("\n> "),
                     );
                     return Err(WalletToolError::UnexpectedResponse.into());
                 }
             }
             println!(concat!(
-                "\nThe backup of the emergency recovery phrase for the zcashd\n",
+                "\nThe backup of the emergency recovery phrase for the junod\n",
                 "wallet has been successfully confirmed 🙂. You can now use the\n",
-                "zcashd RPC methods that create keys and addresses in that wallet.\n",
+                "junod RPC methods that create keys and addresses in that wallet.\n",
                 "\n",
-                "The zcashd wallet might also contain keys that are *not* derived\n",
+                "The junod wallet might also contain keys that are *not* derived\n",
                 "from the emergency recovery phrase. If you lose the 'wallet.dat'\n",
                 "file then any funds associated with these keys would be lost. To\n",
                 "minimize this risk, it is recommended to send all funds from this\n",
@@ -501,10 +501,10 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
         })
         .inspect_err(|_| {
             println!(concat!(
-                "\nzcash-wallet-tool was unable to communicate to zcashd that the\n",
-                "backup was confirmed. This can happen if zcashd stopped, in which\n",
-                "case you should try again. If zcashd is still running, please seek\n",
-                "help or try to use 'zcash-cli -stdin walletconfirmbackup' manually.\n"
+                "\njunod-wallet-tool was unable to communicate to junod that the\n",
+                "backup was confirmed. This can happen if junod stopped, in which\n",
+                "case you should try again. If junod is still running, please seek\n",
+                "help or try to use 'juno-cli -stdin walletconfirmbackup' manually.\n"
             ));
         })?;
     Ok(())
@@ -547,36 +547,36 @@ fn ordinal(num: usize) -> String {
     format!("{}{}", num, suffix)
 }
 
-fn zcash_cli_path() -> anyhow::Result<PathBuf> {
-    // First look for `zcash_cli[.exe]` as a sibling of the executable.
+fn juno_cli_path() -> anyhow::Result<PathBuf> {
+    // First look for `juno_cli[.exe]` as a sibling of the executable.
     let mut exe = env::current_exe()
         .with_context(|| "Cannot determine the path of the running executable")?;
-    exe.set_file_name("zcash-cli");
+    exe.set_file_name("juno-cli");
     exe.set_extension(EXE_EXTENSION);
 
-    debug!("Testing for zcash-cli at {:?}", exe);
+    debug!("Testing for juno-cli at {:?}", exe);
     if exe.exists() {
         return Ok(exe);
     }
-    // If not found there, look in `../src/zcash_cli[.exe]` provided
+    // If not found there, look in `../src/juno_cli[.exe]` provided
     // that `src` is a sibling of `target`.
     exe.pop(); // strip filename
     exe.pop(); // ..
     if exe.file_name() != Some(OsStr::new("target")) {
-        // or in `../../src/zcash_cli[.exe]` under the same proviso
+        // or in `../../src/juno_cli[.exe]` under the same proviso
         exe.pop(); // ../..
         if exe.file_name() != Some(OsStr::new("target")) {
-            return Err(WalletToolError::ZcashCliNotFound.into());
+            return Err(WalletToolError::JunoCliNotFound.into());
         }
     }
     // Replace 'target/' with 'src/'.
     exe.set_file_name("src");
-    exe.push("zcash-cli");
+    exe.push("juno-cli");
     exe.set_extension(EXE_EXTENSION);
 
-    debug!("Testing for zcash-cli at {:?}", exe);
+    debug!("Testing for juno-cli at {:?}", exe);
     if !exe.exists() {
-        return Err(WalletToolError::ZcashCliNotFound.into());
+        return Err(WalletToolError::JunoCliNotFound.into());
     }
     Ok(exe)
 }
@@ -596,13 +596,13 @@ fn exec(exe_path: &Path, args: &[String], stdin: Option<&str>) -> anyhow::Result
             cli_process
                 .stdin
                 .take()
-                .with_context(|| "Could not open pipe to zcash-cli's stdin")
+                .with_context(|| "Could not open pipe to juno-cli's stdin")
                 .and_then(|mut pipe: ChildStdin| -> anyhow::Result<()> {
                     pipe.write_all(data.as_bytes())?;
                     pipe.write_all("\n".as_bytes())?;
                     Ok(())
                 })
-                .with_context(|| "Could not write to zcash-cli's stdin")?;
+                .with_context(|| "Could not write to juno-cli's stdin")?;
             Ok(cli_process.wait_with_output()?)
         }
     }
@@ -631,9 +631,9 @@ fn clear_and_show_cautions(export_path: &str) {
 
     println!(
         concat!(
-            "\nIMPORTANT: Secrets that allow spending all zcashd wallet funds\n",
+            "\nIMPORTANT: Secrets that allow spending all junod wallet funds\n",
             "have been left in the file '{}'.\n\n",
-            "Don't forget to restart zcashd without '-exportdir', if running it\n",
+            "Don't forget to restart junod without '-exportdir', if running it\n",
             "long-term with that option is not desired or would be a security\n",
             "hazard in your environment.\n\n",
             "When choosing a location for the physical backup of your emergency\n",
