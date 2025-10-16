@@ -98,6 +98,21 @@ public:
         return buf;
     }
 
+    /**
+     * Get bytes in natural/display order (big-endian) for RandomX.
+     * This reverses the internal little-endian storage to match how the hash
+     * is displayed in hex and how Monero passes hashes to RandomX.
+     * @return Array of bytes in big-endian order
+     */
+    std::array<uint8_t, WIDTH> GetBytesForRandomX() const
+    {
+        std::array<uint8_t, WIDTH> buf = {};
+        for (unsigned int i = 0; i < WIDTH; i++) {
+            buf[i] = data[WIDTH - 1 - i];
+        }
+        return buf;
+    }
+
     template<typename Stream>
     void Serialize(Stream& s) const
     {

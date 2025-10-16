@@ -1385,7 +1385,7 @@ TEST(ChecktransactionTests, InvalidOrchardShieldedCoinbase) {
 
     // Make it an invalid shielded coinbase, by creating an all-dummy Orchard bundle.
     RawHDSeed seed(32, 0);
-    auto to = libzcash::OrchardSpendingKey::ForAccount(seed, 133, 0)
+    auto to = libzcash::OrchardSpendingKey::ForAccount(seed, 8133, 0)
         .ToFullViewingKey()
         .GetChangeAddress();
     mtx.vin.resize(1);

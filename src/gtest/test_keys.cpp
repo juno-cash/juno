@@ -79,7 +79,7 @@ namespace libzcash {
 
 TEST(Keys, EncodeAndDecodeUnifiedAddresses)
 {
-    SelectParams(CBaseChainParams::MAIN);
+    SelectParams(CBaseChainParams::REGTEST);
     KeyIO keyIO(Params());
 
     UniValue ua_tests = read_json(MAKE_STRING(json_tests::unified_addrs));
@@ -181,7 +181,7 @@ TEST(Keys, DeriveUnifiedFullViewingKeys)
             HDSeed hdseed(raw_seed);
             auto usk = libzcash::ZcashdUnifiedSpendingKey::ForAccount(
                     hdseed,
-                    133, //ZCASH_MAIN_COINTYPE
+                    8133, //JUNOMONETA_MAIN_COINTYPE
                     test[7].get_int());
             ASSERT_TRUE(usk.has_value());
             auto ufvk = usk->ToFullViewingKey();

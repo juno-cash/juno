@@ -142,8 +142,8 @@ TEST(ZIP32, ParseHDKeypathAccount) {
     sAccount = "m/32'/1234'/5'/0";
     expect_account(sAccount, 1234, 5);
 
-    sAccount = "m/32'/133'/2147483646'/1";
-    expect_account(sAccount, 133, 2147483646);
+    sAccount = "m/32'/8133'/2147483646'/1";
+    expect_account(sAccount, 8133, 2147483646);
 }
 
 TEST(ZIP32, diversifier_index_t_increment)
