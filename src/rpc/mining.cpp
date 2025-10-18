@@ -283,9 +283,6 @@ UniValue generate(const UniValue& params, bool fHelp)
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << I;
 
-        // Ensure RandomX is initialized
-        RandomX_Init();
-
         while (true) {
             // Yes, there is a chance every nonce could fail to satisfy the -regtest
             // target -- 1 in 2^(2^256). That ain't gonna happen
