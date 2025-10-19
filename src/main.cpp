@@ -6644,7 +6644,14 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                     }
                 }
             } catch (const std::exception& e) {
-                LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
+                // Buffer limit errors are expected when block files have incomplete data at the end
+                // (e.g., from node crashes). Other errors may indicate real problems.
+                std::string error_msg = e.what();
+                if (error_msg.find("buffer limit") != std::string::npos) {
+                    LogPrint("reindex", "%s: Skipped incomplete block data at end of file (expected during reindex)\n", __func__);
+                } else {
+                    LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
+                }
             }
         }
     } catch (const std::runtime_error& e) {
