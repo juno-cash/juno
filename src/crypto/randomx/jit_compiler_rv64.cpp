@@ -26,6 +26,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#if defined(__riscv) && __riscv_xlen == 64
+
 #include <stdexcept>
 #include <cstring>
 #include <climits>
@@ -1173,3 +1175,5 @@ namespace {
 		INST_HANDLE1(NOP)
 	};
 }
+
+#endif /* __riscv && __riscv_xlen == 64 */

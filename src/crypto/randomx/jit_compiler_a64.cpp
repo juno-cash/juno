@@ -27,6 +27,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#if defined(__aarch64__)
+
 #include "jit_compiler_a64.hpp"
 #include "superscalar.hpp"
 #include "program.hpp"
@@ -1062,3 +1064,5 @@ void JitCompilerA64::h_NOP(Instruction& instr, uint32_t& codePos)
 		INST_HANDLE(NOP)
 	};
 }
+
+#endif /* __aarch64__ */

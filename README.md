@@ -161,9 +161,9 @@ You can throw some crumbs at the developers if you want
 - **Enhanced getblocktemplate**: Includes RandomX seed information
 
 ### Build System
-- **RandomX integration**: Custom Makefile rules for x86 assembly
+- **RandomX integration**: Custom Makefile rules for x86/ARM64/RISC-V assembly
 - **Rust patches**: Custom zcash_protocol crate for address HRPs (depends/patches/zcash_protocol/)
-- **Platform**: Optimized for x86_64 Linux (ARM64/RISC-V JIT removed)
+- **Platform**: Multi-architecture support (x86_64, ARM64, RISC-V JIT compilers)
 
 ---
 
@@ -187,7 +187,7 @@ You can throw some crumbs at the developers if you want
 - Test on regtest/testnet before mainnet
 
 ### Known Considerations
-1. Platform support limited to Linux x86_64
+1. Platform support includes x86_64, ARM64 (Apple Silicon M1/M2/M3/M4, etc.), and RISC-V architectures
 
 ---
 

@@ -28,6 +28,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define DECL(x) x
 
+#if defined(__riscv) && __riscv_xlen == 64
 .text
 .option rvc
 
@@ -1233,3 +1234,5 @@ DECL(randomx_riscv64_ssh_prefetch):
 
 DECL(randomx_riscv64_ssh_end):
     nop
+
+#endif /* __riscv && __riscv_xlen == 64 */

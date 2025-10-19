@@ -444,7 +444,8 @@ libbitcoin_wallet_a_SOURCES = \
 # crypto primitives library
 crypto_libbitcoin_crypto_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_CONFIG_INCLUDES)
 crypto_libbitcoin_crypto_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-crypto_libbitcoin_crypto_a_LIBADD = crypto/randomx/jit_compiler_x86_static.o
+# RandomX assembly object files (architecture-guarded, only one contains actual code per platform)
+crypto_libbitcoin_crypto_a_LIBADD = crypto/randomx/jit_compiler_x86_static.o crypto/randomx/jit_compiler_a64_static.o crypto/randomx/jit_compiler_rv64_static.o
 crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/aes.cpp \
   crypto/aes.h \
@@ -491,7 +492,13 @@ crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/randomx/instructions_portable.cpp \
   crypto/randomx/intrin_portable.h \
   crypto/randomx/jit_compiler.hpp \
+  crypto/randomx/jit_compiler_a64.cpp \
+  crypto/randomx/jit_compiler_a64.hpp \
+  crypto/randomx/jit_compiler_a64_static.hpp \
   crypto/randomx/jit_compiler_fallback.hpp \
+  crypto/randomx/jit_compiler_rv64.cpp \
+  crypto/randomx/jit_compiler_rv64.hpp \
+  crypto/randomx/jit_compiler_rv64_static.hpp \
   crypto/randomx/jit_compiler_x86.cpp \
   crypto/randomx/jit_compiler_x86.hpp \
   crypto/randomx/jit_compiler_x86_static.hpp \
@@ -826,7 +833,13 @@ BUILT_SOURCES = $(CXXBRIDGE_H)
 crypto/randomx/jit_compiler_x86_static.o: crypto/randomx/jit_compiler_x86_static.S
 	$(AM_V_GEN)$(CC) -c -o $@ $<
 
-CLEANFILES = *.gcda *.gcno */*.gcno wallet/*/*.gcno $(bin_SCRIPTS) crypto/randomx/jit_compiler_x86_static.o
+crypto/randomx/jit_compiler_a64_static.o: crypto/randomx/jit_compiler_a64_static.S
+	$(AM_V_GEN)$(CC) -c -o $@ $<
+
+crypto/randomx/jit_compiler_rv64_static.o: crypto/randomx/jit_compiler_rv64_static.S
+	$(AM_V_GEN)$(CC) -c -o $@ $<
+
+CLEANFILES = *.gcda *.gcno */*.gcno wallet/*/*.gcno $(bin_SCRIPTS) crypto/randomx/jit_compiler_x86_static.o crypto/randomx/jit_compiler_a64_static.o crypto/randomx/jit_compiler_rv64_static.o
 
 DISTCLEANFILES = obj/build.h
 

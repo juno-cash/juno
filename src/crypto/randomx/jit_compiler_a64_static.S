@@ -31,6 +31,7 @@
 #define DECL(x) x
 #endif
 
+#if defined(__aarch64__)
 	.arch armv8-a
 	.text
 	.global DECL(randomx_program_aarch64)
@@ -587,3 +588,5 @@ DECL(randomx_calc_dataset_item_aarch64_store_result):
 	ret
 
 DECL(randomx_calc_dataset_item_aarch64_end):
+
+#endif /* __aarch64__ */
