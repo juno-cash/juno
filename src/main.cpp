@@ -56,7 +56,7 @@
 using namespace std;
 
 #if defined(NDEBUG)
-# error "Zcash cannot be compiled without assertions."
+# error "Juno Cash cannot be compiled without assertions."
 #endif
 
 #include "librustzcash.h"
@@ -142,7 +142,7 @@ static void CheckBlockIndex(const Consensus::Params& consensusParams);
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
 
-const string strMessageMagic = "Zcash Signed Message:\n";
+const string strMessageMagic = "Juno Cash Signed Message:\n";
 
 // Internal stuff
 namespace {
