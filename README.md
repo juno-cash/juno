@@ -24,16 +24,14 @@ Forked from Zcash v6.10.0
 
 ### Mainnet
 
-Create `~/.junocash/junocash.conf`:
-```
-rpcuser=user
-rpcpassword=STRONG_PASSWORD
-```
+On first run, `~/.junocash/junocash.conf` will be created automatically with helpful defaults.
 
 ```bash
 ./src/junocashd -daemon
 ./src/junocash-cli getblockchaininfo
 ```
+
+The auto-generated config uses secure cookie authentication by default. To customize settings, edit `~/.junocash/junocash.conf`.
 
 ## Mining
 

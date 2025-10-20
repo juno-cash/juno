@@ -28,7 +28,7 @@ struct CliOptions {
 
     #[options(
         no_short,
-        help = "Specify configuration filename, relative to the data directory (default: juno.conf)",
+        help = "Specify configuration filename, relative to the data directory (default: junocash.conf)",
         meta = "FILENAME"
     )]
     conf: Option<String>,
@@ -221,9 +221,9 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
     if !cli_err.is_empty() {
         if cli_err[0].starts_with("Error reading configuration file") {
             println!(
-                "\nNo, we could not read the junod configuration file, expected to be at\n{:?}.",
-                Path::new(opts.datadir.as_ref().map_or("~/.juno", |s| &s[..])).join(Path::new(
-                    opts.conf.as_ref().map_or("juno.conf", |s| &s[..])
+                "\nNo, we could not read the junocashd configuration file, expected to be at\n{:?}.",
+                Path::new(opts.datadir.as_ref().map_or("~/.junocash", |s| &s[..])).join(Path::new(
+                    opts.conf.as_ref().map_or("junocash.conf", |s| &s[..])
                 )),
             );
             println!(concat!(

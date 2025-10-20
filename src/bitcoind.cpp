@@ -20,6 +20,7 @@
 #include <boost/thread.hpp>
 
 #include <stdio.h>
+#include <fstream>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
@@ -54,6 +55,60 @@ void WaitForShutdown(boost::thread_group* threadGroup)
     {
         Interrupt(*threadGroup);
         threadGroup->join_all();
+    }
+}
+
+static std::string GetDefaultConfigContent()
+{
+    return
+        "# Juno Cash configuration file\n"
+        "# Generated automatically on first run\n"
+        "# Lines beginning with # are comments\n"
+        "\n"
+        "# Enable CPU mining (uncomment to enable)\n"
+        "#gen=1\n"
+        "\n"
+        "# Number of CPU threads for mining (-1 = all cores)\n"
+        "#genproclimit=-1\n"
+        "\n"
+        "# RPC server (enabled by default)\n"
+        "# Authentication uses a random cookie by default\n"
+        "# To use password auth instead, uncomment and set:\n"
+        "#rpcuser=yourusername\n"
+        "#rpcpassword=yourpassword\n"
+        "\n"
+        "# Restrict RPC to localhost only (default behavior)\n"
+        "# To allow other IPs, uncomment and specify:\n"
+        "#rpcallowip=127.0.0.1\n"
+        "\n"
+        "# Optional developer donation (0-100 percent of mining rewards, default=0)\n"
+        "#donationpercentage=5\n"
+        "\n";
+}
+
+static bool CreateDefaultConfigFile(const fs::path& confPath)
+{
+    try {
+        // Create parent directory if it doesn't exist
+        fs::path dir = confPath.parent_path();
+        if (!fs::exists(dir)) {
+            fs::create_directories(dir);
+        }
+
+        // Write default config content
+        std::ofstream file;
+        file.open(confPath.string());
+        if (!file.is_open()) {
+            return false;
+        }
+        file << GetDefaultConfigContent();
+        file.close();
+
+        fprintf(stdout, _("Created configuration file: %s\n").c_str(), confPath.string().c_str());
+        return true;
+    } catch (const std::exception& e) {
+        fprintf(stderr, _("Error creating configuration file: %s\n").c_str(), e.what());
+        return false;
     }
 }
 
@@ -106,23 +161,24 @@ bool AppInit(int argc, char* argv[])
             ReadConfigFile(GetArg("-conf", BITCOIN_CONF_FILENAME), mapArgs, mapMultiArgs);
         } catch (const missing_zcash_conf& e) {
             auto confFilename = GetArg("-conf", BITCOIN_CONF_FILENAME);
-            fprintf(stderr,
-                (_("Before starting zcashd, you need to create a configuration file:\n"
-                   "%s\n"
-                   "It can be completely empty! That indicates you are happy with the default\n"
-                   "configuration of zcashd. But requiring a configuration file to start ensures\n"
-                   "that zcashd won't accidentally compromise your privacy if there was a default\n"
-                   "option you needed to change.\n"
-                   "\n"
-                   "You can look at the example configuration file for suggestions of default\n"
-                   "options that you may want to change. It should be in one of these locations,\n"
-                   "depending on how you installed Juno Cash:\n") +
-                 _("- Source code:  %s%s\n"
-                   "- .deb package: %s%s\n")).c_str(),
-                GetConfigFile(confFilename).string().c_str(),
-                "contrib/debian/examples/", confFilename.c_str(),
-                "/usr/share/doc/junocash/examples/", confFilename.c_str());
-            return false;
+            auto confPath = GetConfigFile(confFilename);
+
+            // Auto-create config file with helpful defaults
+            fprintf(stdout, _("Configuration file not found. Creating default configuration at:\n%s\n").c_str(),
+                    confPath.string().c_str());
+
+            if (!CreateDefaultConfigFile(confPath)) {
+                fprintf(stderr, _("Failed to create configuration file. Please create it manually.\n").c_str());
+                return false;
+            }
+
+            // Try reading again after creation
+            try {
+                ReadConfigFile(confFilename, mapArgs, mapMultiArgs);
+            } catch (const std::exception& e2) {
+                fprintf(stderr, _("Error reading newly created configuration file: %s\n").c_str(), e2.what());
+                return false;
+            }
         } catch (const std::exception& e) {
             fprintf(stderr,"Error reading configuration file: %s\n", e.what());
             return false;

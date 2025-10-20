@@ -73,7 +73,7 @@
 
 using namespace std;
 
-const char * const BITCOIN_CONF_FILENAME = "juno.conf";
+const char * const BITCOIN_CONF_FILENAME = "junocash.conf";
 const char * const BITCOIN_PID_FILENAME = "junod.pid";
 
 CCriticalSection cs_args;

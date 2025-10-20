@@ -1002,7 +1002,7 @@ void InitLogging()
     LogPrintf("  https://juno.cash/\n");
     LogPrintf("\n");
     LogPrintf("  Please consider donating a few percent of your mining rewards to support development\n");
-    LogPrintf("  add donationpercentage=5 in your ~/.juno/juno.conf (example 5 percent)\n");
+    LogPrintf("  add donationpercentage=5 in your ~/.junocash/junocash.conf (example 5 percent)\n");
     LogPrintf("\n");
 }
 
