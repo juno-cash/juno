@@ -1,16 +1,16 @@
-# bash programmable completion for zcash-tx(1)
+# bash programmable completion for junocash-tx(1)
 # Copyright (c) 2016 The Bitcoin Core developers
 # Copyright (c) 2016-2019 The Zcash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
-_zcash_tx() {
+_junocash_tx() {
     local cur prev words=() cword
-    local zcash_tx
+    local junocash_tx
 
-    # save and use original argument to invoke zcash-tx for -help
+    # save and use original argument to invoke junocash-tx for -help
     # it might not be in $PATH
-    zcash_tx="$1"
+    junocash_tx="$1"
 
     COMPREPLY=()
     _get_comp_words_by_ref -n =: cur prev words cword
@@ -28,15 +28,15 @@ _zcash_tx() {
 
     if [[ "$cword" == 1 || ( "$prev" != "-create" && "$prev" == -* ) ]]; then
         # only options (or an uncompletable hex-string) allowed
-        # parse zcash-tx -help for options
+        # parse junocash-tx -help for options
         local helpopts
-        helpopts=$($zcash_tx -help | sed -e '/^  -/ p' -e d )
+        helpopts=$($junocash_tx -help | sed -e '/^  -/ p' -e d )
         COMPREPLY=( $( compgen -W "$helpopts" -- "$cur" ) )
     else
         # only commands are allowed
         # parse -help for commands
         local helpcmds
-        helpcmds=$($zcash_tx -help | sed -e '1,/Commands:/d' -e 's/=.*/=/' -e '/^  [a-z]/ p' -e d )
+        helpcmds=$($junocash_tx -help | sed -e '1,/Commands:/d' -e 's/=.*/=/' -e '/^  [a-z]/ p' -e d )
         COMPREPLY=( $( compgen -W "$helpcmds" -- "$cur" ) )
     fi
 
@@ -47,7 +47,7 @@ _zcash_tx() {
 
     return 0
 } &&
-complete -F _zcash_tx zcash-tx
+complete -F _junocash_tx junocash-tx
 
 # Local variables:
 # mode: shell-script
