@@ -178,7 +178,7 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
             + Deprecated(fEnableGetNewAddress,
                          "t_getnewaddress",
                          "Please use z_getnewaccount and z_getaddressforaccount instead.") +
-            "\nReturns a new transparent Zcash address.\n"
+            "\nReturns a new transparent Juno Cash address.\n"
             "Payments received by this API are visible on-chain and do not otherwise\n"
             "provide privacy protections; they should only be used in circumstances \n"
             "where it is necessary to interoperate with legacy Bitcoin infrastructure.\n"
@@ -187,7 +187,7 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
             "1. (dummy)       (string, optional) DEPRECATED. If provided, it MUST be set to the empty string \"\". Passing any other string will result in an error.\n"
 
             "\nResult:\n"
-            "\"zcashaddress\"    (string) The new transparent Zcash address\n"
+            "\"junocashaddress\"    (string) The new transparent Juno Cash address\n"
 
             "\nExamples:\n"
             + HelpExampleCli("t_getnewaddress", "")
@@ -222,7 +222,7 @@ UniValue z_converttex(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 1)
         throw runtime_error(
             "z_converttex ( \"transparentaddress\" )\n"
-            "\nConverts a transparent Zcash address to a TEX address.\n"
+            "\nConverts a transparent Juno Cash address to a TEX address.\n"
 
             "\nArguments:\n"
             "1. \"transparentaddress\" (string, required) \n"
@@ -259,7 +259,7 @@ UniValue getrawchangeaddress(const UniValue& params, bool fHelp)
                          "t_getrawchangeaddress",
                          "Change addresses are a wallet-internal feature. Use a unified address\n"
                          "for a dedicated change account instead.") +
-            "\nReturns a new transparent Zcash address for receiving change.\n"
+            "\nReturns a new transparent Juno Cash address for receiving change.\n"
             "This is for use with raw transactions, NOT normal use. Additionally,\n"
             "the resulting address does not correspond to the \"change\" HD derivation\n"
             "path.\n"

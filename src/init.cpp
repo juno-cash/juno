@@ -340,7 +340,7 @@ std::string HelpMessage(HelpMessageMode mode)
 #endif
     }
     strUsage += HelpMessageOpt("-datadir=<dir>", _("Specify data directory (this path cannot use '~')"));
-    strUsage += HelpMessageOpt("-paramsdir=<dir>", _("Specify Zcash network parameters directory"));
+    strUsage += HelpMessageOpt("-paramsdir=<dir>", _("Specify Juno Cash network parameters directory"));
     strUsage += HelpMessageOpt("-dbcache=<n>", strprintf(_("Set database cache size in megabytes (%d to %d, default: %d)"), nMinDbCache, nMaxDbCache, nDefaultDbCache));
     strUsage += HelpMessageOpt("-debuglogfile=<file>", strprintf(_("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (default: %s)"), DEFAULT_DEBUGLOGFILE));
     strUsage += HelpMessageOpt("-exportdir=<dir>", _("Specify directory to be used when exporting data"));
@@ -1438,7 +1438,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
         if (!addr.has_value()) {
             return InitError(strprintf(
-                _("Invalid address for -mineraddress=<addr>: Unable to parse '%s' as a Zcash address.)"),
+                _("Invalid address for -mineraddress=<addr>: Unable to parse '%s' as a Juno Cash address.)"),
                 mapArgs["-mineraddress"]));
         }
         if (!std::visit(ExtractMinerAddress(consensus, height), addr.value()).has_value()) {
@@ -1463,7 +1463,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // Sanity check
     if (!InitSanityCheck())
-        return InitError(_("Initialization sanity check failed. Zcash is shutting down."));
+        return InitError(_("Initialization sanity check failed. Juno Cash is shutting down."));
 
     std::string strDataDir = GetDataDir().string();
 
@@ -1563,7 +1563,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         );
     }
 
-    // Initialize Zcash circuit parameters
+    // Initialize Juno Cash circuit parameters
     ZC_LoadParams(chainparams);
 
     /* Start the RPC server already.  It will be started in "warmup" mode
@@ -1956,10 +1956,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 #ifdef ENABLE_MINING
  #ifndef ENABLE_WALLET
     if (GetBoolArg("-minetolocalwallet", false)) {
-        return InitError(_("Zcash was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Zcash with wallet support."));
+        return InitError(_("Juno Cash was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Juno Cash with wallet support."));
     }
     if (GetArg("-mineraddress", "").empty() && GetBoolArg("-gen", false)) {
-        return InitError(_("Zcash was not built with wallet support. Set -mineraddress, or rebuild Zcash with wallet support."));
+        return InitError(_("Juno Cash was not built with wallet support. Set -mineraddress, or rebuild Juno Cash with wallet support."));
     }
  #endif // !ENABLE_WALLET
 
