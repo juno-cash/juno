@@ -1,6 +1,6 @@
-diff -ur db-6.2.23-orig/src/blob/blob_util.c db-6.2.23/src/blob/blob_util.c
---- db-6.2.23-orig/src/blob/blob_util.c	2016-03-28 20:45:53.000000000 +0100
-+++ db-6.2.23/src/blob/blob_util.c	2021-07-30 19:52:37.082811600 +0100
+diff -ur db-6.2.32-orig/src/blob/blob_util.c db-6.2.32/src/blob/blob_util.c
+--- db-6.2.32-orig/src/blob/blob_util.c	2016-03-28 20:45:53.000000000 +0100
++++ db-6.2.32/src/blob/blob_util.c	2021-07-30 19:52:37.082811600 +0100
 @@ -544,7 +544,12 @@
  		goto err;
  
