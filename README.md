@@ -57,7 +57,12 @@ Or via RPC:
 ```bash
 ./src/junocash-cli z_shieldcoinbase "*" YOUR_ORCHARD_ADDRESS
 ```
-3. Send from Orchard:
+3. Send from Orchard (simple):
+```bash
+./src/junocash-cli z_send FROM_ORCHARD TO_ORCHARD 1.0
+```
+
+Or use z_sendmany for multiple recipients:
 ```bash
 ./src/junocash-cli z_sendmany FROM_ORCHARD '[{"address":"TO_ORCHARD","amount":1.0}]'
 ```
@@ -71,6 +76,12 @@ Or via RPC:
 
 # Check balance
 ./src/junocash-cli z_getbalanceforaccount 0
+
+# Send to single recipient (simple)
+./src/junocash-cli z_send "FROM_ADDRESS" "TO_ADDRESS" 1.0
+
+# Send to multiple recipients
+./src/junocash-cli z_sendmany "FROM_ADDRESS" '[{"address":"TO_ADDRESS","amount":1.0}]'
 
 # List transactions
 ./src/junocash-cli listtransactions
