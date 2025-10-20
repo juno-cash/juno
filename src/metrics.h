@@ -88,30 +88,7 @@ void TriggerRefresh();
 void ConnectMetricsScreen();
 void ThreadShowMetricsScreen();
 
-/**
- * Juno Moneta - Roman goddess of money and mint
- * ASCII art representing wealth and prosperity
- */
-const std::string METRICS_ART =
-"                                        \n"
-"          [1;33m___[0m      [1;37mJUNO[0m      [1;33m___[0m          \n"
-"        [1;33m.'   `.[0m  [1;37mMONETA[0m  [1;33m.'   `.[0m        \n"
-"       [1;33m/       \\[0m          [1;33m/       \\[0m       \n"
-"      [1;33m|    [1;37mO[1;33m    |[0m        [1;33m|    [1;37mO[1;33m    |[0m      \n"
-"      [1;33m|   [1;37mJMR[1;33m   |[0m        [1;33m|   [1;37mJMR[1;33m   |[0m      \n"
-"       [1;33m\\       /[0m          [1;33m\\       /[0m       \n"
-"        [1;33m`.___.´[0m            [1;33m`.___.´[0m        \n"
-"                                        \n"
-"           [1;36m____  ____[0m                  \n"
-"          [1;36m/    \\/    \\[0m                 \n"
-"         [1;36m|    [1;37mO[1;36m      |[0m                \n"
-"         [1;36m|   [1;37mJMR[1;36m    |[0m                \n"
-"         [1;36m|          |[0m   [1;33mWealth[0m         \n"
-"          [1;36m\\        /[0m   [1;33mfor All[0m         \n"
-"           [1;36m`.____.´[0m                    \n"
-"                                        \n"
-"      [1;90m~[0m [1;35mRandomX[0m [1;32mPrivacy[0m [1;33mMoney[0m [1;90m~[0m      \n"
-"                                        ";
+const std::string METRICS_ART = "";
 
 
 #endif // ZCASH_METRICS_H

@@ -363,7 +363,7 @@ namespace Consensus {
 
     CAmount Params::GetBlockSubsidy(int nHeight) const
     {
-        // Emission schedule with 21,000,000 JMR maximum supply
+        // Emission schedule with 21,000,000 JNO maximum supply
         // - Blocks 0-9: 0 coins (genesis buffer)
         // - Blocks 10-29,999: Ramp-up (0.25 doubling every 5,000 blocks to 8)
         // - Blocks 30,000-99,999: 10 coins (plateau)

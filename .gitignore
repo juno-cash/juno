@@ -8,11 +8,11 @@ src/zcash-cli
 src/zcash-gtest
 src/zcash-inspect
 src/zcash-tx
-src/junod
-src/junod-wallet-tool
-src/juno-cli
-src/juno-gtest
-src/juno-tx
+src/junocashd
+src/junocashd-wallet-tool
+src/junocash-cli
+src/junocash-gtest
+src/junocash-tx
 src/test/test_bitcoin
 zcutil/bin/
 
@@ -65,7 +65,7 @@ src/univalue/gen
 *.o.tmp
 *.o-*
 .zcash
-.juno
+.junocash
 *.a
 *.lib
 *.pb.cc

@@ -226,13 +226,13 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 
 fs::path GetDefaultDataDir()
 {
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Juno
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Juno
-    // Mac: ~/Library/Application Support/Juno
-    // Unix: ~/.juno
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\JunoCash
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\JunoCash
+    // Mac: ~/Library/Application Support/JunoCash
+    // Unix: ~/.junocash
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Juno";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "JunoCash";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -244,10 +244,10 @@ fs::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "Juno";
+    return pathRet / "JunoCash";
 #else
     // Unix
-    return pathRet / ".juno";
+    return pathRet / ".junocash";
 #endif
 #endif
 }
@@ -259,15 +259,15 @@ static CCriticalSection csPathCached;
 
 static fs::path ZC_GetDefaultBaseParamsDir()
 {
-    // Copied from GetDefaultDataDir and adapter for juno params.
+    // Copied from GetDefaultDataDir and adapted for juno params.
 
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\JunoParams
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\JunoParams
-    // Mac: ~/Library/Application Support/JunoParams
-    // Unix: ~/.juno-params
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\JunoCashParams
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\JunoCashParams
+    // Mac: ~/Library/Application Support/JunoCashParams
+    // Unix: ~/.junocash-params
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "JunoParams";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "JunoCashParams";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -279,10 +279,10 @@ static fs::path ZC_GetDefaultBaseParamsDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "JunoParams";
+    return pathRet / "JunoCashParams";
 #else
     // Unix
-    return pathRet / ".juno-params";
+    return pathRet / ".junocash-params";
 #endif
 #endif
 }

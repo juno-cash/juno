@@ -1,6 +1,6 @@
 //! Constants for the Zcash main network.
 
-/// The mainnet coin type for Juno Moneta (JMR).
+/// The mainnet coin type for Juno Moneta (JNO).
 ///
 /// [SLIP 44]: https://github.com/satoshilabs/slips/blob/master/slip-0044.md
 pub const COIN_TYPE: u32 = 8133;

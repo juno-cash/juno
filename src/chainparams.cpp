@@ -86,7 +86,7 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         keyConstants.strNetworkID = "main";
-        strCurrencyUnits = "JMR";
+        strCurrencyUnits = "JNO";
         keyConstants.bip44CoinType = 8133; // Juno Moneta coin type
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
@@ -457,7 +457,7 @@ class CTestNetParams : public CChainParams {
 public:
     CTestNetParams() {
         keyConstants.strNetworkID = "test";
-        strCurrencyUnits = "TJMR";
+        strCurrencyUnits = "TJNO";
         keyConstants.bip44CoinType = 1;
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
@@ -786,7 +786,7 @@ class CRegTestParams : public CChainParams {
 public:
     CRegTestParams() {
         keyConstants.strNetworkID = "regtest";
-        strCurrencyUnits = "RJMR";
+        strCurrencyUnits = "RJNO";
         keyConstants.bip44CoinType = 1;
         consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidySlowStartInterval = 0;

@@ -24,30 +24,30 @@ Forked from Zcash v6.10.0
 
 ### Mainnet
 
-Create `~/.juno/juno.conf`:
+Create `~/.junocash/junocash.conf`:
 ```
 rpcuser=user
 rpcpassword=STRONG_PASSWORD
 ```
 
 ```bash
-./src/junod -daemon
-./src/juno-cli getblockchaininfo
+./src/junocashd -daemon
+./src/junocash-cli getblockchaininfo
 ```
 
 ## Mining
 
 ### Enable Mining
 
-In `juno.conf`:
+In `junocash.conf`:
 ```
 gen=1
 ```
 
 Or via RPC:
 ```bash
-./src/juno-cli setgenerate true
-./src/juno-cli getmininginfo
+./src/junocash-cli setgenerate true
+./src/junocash-cli getmininginfo
 ```
 
 ### Spend Mined Coins
@@ -55,28 +55,28 @@ Or via RPC:
 1. Wait 1000 blocks for maturity
 2. Shield to Orchard:
 ```bash
-./src/juno-cli z_shieldcoinbase "*" YOUR_ORCHARD_ADDRESS
+./src/junocash-cli z_shieldcoinbase "*" YOUR_ORCHARD_ADDRESS
 ```
 3. Send from Orchard:
 ```bash
-./src/juno-cli z_sendmany FROM_ORCHARD '[{"address":"TO_ORCHARD","amount":1.0}]'
+./src/junocash-cli z_sendmany FROM_ORCHARD '[{"address":"TO_ORCHARD","amount":1.0}]'
 ```
 
 ## Common Commands
 
 ```bash
 # Get new account and address
-./src/juno-cli z_getnewaccount
-./src/juno-cli z_getaddressforaccount 0
+./src/junocash-cli z_getnewaccount
+./src/junocash-cli z_getaddressforaccount 0
 
 # Check balance
-./src/juno-cli z_getbalanceforaccount 0
+./src/junocash-cli z_getbalanceforaccount 0
 
 # List transactions
-./src/juno-cli listtransactions
+./src/junocash-cli listtransactions
 
 # Stop daemon
-./src/juno-cli stop
+./src/junocash-cli stop
 ```
 
 ---
@@ -97,7 +97,7 @@ Or via RPC:
 |-----------|-------|
 | Block Time | 60s |
 | Coinbase Maturity | 1000 blocks |
-| Max Supply | 21M JMR |
+| Max Supply | 21M JNO |
 | PoW Algorithm | RandomX |
 | Miner Reward | 100% |
 | BIP-44 Coin Type | 8133 |
@@ -114,7 +114,7 @@ Or via RPC:
 ### Schedule Phases
 
 **Phase 0: Genesis Buffer (0-9)**
-- 0 JMR - Prevents pre-mine
+- 0 JNO - Prevents pre-mine
 
 **Phase 1: Ramp-Up (10-30,009)**
 - Doubles every 5,000 blocks: 0.25 → 0.5 → 1 → 2 → 4 → 8 coins
@@ -125,7 +125,7 @@ Or via RPC:
 - Duration: ~48.6 days
 
 **Phase 2: First Year (100,010-625,609)**
-- 8 JMR per block
+- 8 JNO per block
 - Duration: 365 days (525,600 blocks)
 - Total emission: ~4.2M coins
 
@@ -151,8 +151,8 @@ Or via RPC:
 You can throw some crumbs at the developers if you want
 
 - **Default**: Off (0%)
-- **Config (juno.conf)**: `donationpercentage=0-100` and `donationaddress=<address>` 
-- **RPC**: `setdonationpercentage X` and `setdonationaddress <address>` 
+- **Config (junocash.conf)**: `donationpercentage=0-100` and `donationaddress=<address>`
+- **RPC**: `setdonationpercentage X` and `setdonationaddress <address>`
 - **Behavior**: When enabled, splits coinbase into two outputs (miner + donation)
 - **Address**: Default is `t1HwfuDqt2oAVexgpjDHg9yB7UpCKSmEES7` (mainnet)
 
@@ -182,7 +182,7 @@ You can throw some crumbs at the developers if you want
 - Use strong RPC passwords (32+ characters)
 - Restrict rpcallowip to localhost or trusted IPs
 - Never expose RPC port to public internet
-- Encrypt wallet: `./src/juno-cli encryptwallet PASSPHRASE`
+- Encrypt wallet: `./src/junocash-cli encryptwallet PASSPHRASE`
 - Backup wallet
 - Test on regtest/testnet before mainnet
 

@@ -20,10 +20,10 @@ static const CAmount CENT = 1000000;
 extern const std::string CURRENCY_UNIT;
 extern const std::string MINOR_CURRENCY_UNIT;
 
-/** No amount larger than this (in zatoshi) is valid.
+/** No amount larger than this (in monetas) is valid.
  *
- * Note that this constant is *not* the total money supply, which in Zcash
- * currently happens to be less than 21,000,000 ZEC for various reasons, but
+ * Note that this constant is *not* the total money supply, which in Juno Cash
+ * currently happens to be less than 21,000,000 JNO for various reasons, but
  * rather a sanity check. As this sanity check is used by consensus-critical
  * validation code, the exact value of the MAX_MONEY constant is consensus
  * critical; in unusual circumstances like a(nother) overflow bug that allowed
@@ -41,16 +41,16 @@ static const CAmount LEGACY_DEFAULT_FEE = 1000;
 class CFeeRate
 {
 private:
-    CAmount nSatoshisPerK; // unit is zatoshis-per-1,000-bytes
+    CAmount nSatoshisPerK; // unit is monetas-per-1,000-bytes
 public:
     CFeeRate() : nSatoshisPerK(0) { }
     explicit CFeeRate(const CAmount& _nSatoshisPerK): nSatoshisPerK(_nSatoshisPerK) { }
     CFeeRate(const CAmount& nFeePaid, size_t nSize);
     CFeeRate(const CFeeRate& other) { nSatoshisPerK = other.nSatoshisPerK; }
 
-    CAmount GetFeeForRelay(size_t size) const; // unit returned is zatoshis
-    CAmount GetFee(size_t size) const; // unit returned is zatoshis
-    CAmount GetFeePerK() const { return GetFee(1000); } // zatoshis-per-1000-bytes
+    CAmount GetFeeForRelay(size_t size) const; // unit returned is monetas
+    CAmount GetFee(size_t size) const; // unit returned is monetas
+    CAmount GetFeePerK() const { return GetFee(1000); } // monetas-per-1000-bytes
 
     friend bool operator<(const CFeeRate& a, const CFeeRate& b) { return a.nSatoshisPerK < b.nSatoshisPerK; }
     friend bool operator>(const CFeeRate& a, const CFeeRate& b) { return a.nSatoshisPerK > b.nSatoshisPerK; }

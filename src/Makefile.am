@@ -36,8 +36,8 @@ LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
 
-WALLET_TOOL_BIN=junod-wallet-tool$(EXEEXT)
-WALLET_TOOL_BUILD=$(top_builddir)/target/$(RUST_TARGET)/release/junod-wallet-tool$(EXEEXT)
+WALLET_TOOL_BIN=junocashd-wallet-tool$(EXEEXT)
+WALLET_TOOL_BUILD=$(top_builddir)/target/$(RUST_TARGET)/release/junocashd-wallet-tool$(EXEEXT)
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
@@ -199,11 +199,11 @@ TESTS =
 BENCHMARKS =
 
 if BUILD_BITCOIND
-  bin_PROGRAMS += junod
+  bin_PROGRAMS += junocashd
 endif
 
 if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += juno-cli juno-tx
+  bin_PROGRAMS += junocash-cli junocash-tx
   bin_SCRIPTS += $(WALLET_TOOL_BIN)
 endif
 
@@ -691,16 +691,16 @@ nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # bitcoind binary #
-junod_SOURCES = bitcoind.cpp
-junod_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-junod_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-junod_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+junocashd_SOURCES = bitcoind.cpp
+junocashd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+junocashd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+junocashd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-junod_SOURCES += bitcoind-res.rc
+junocashd_SOURCES += bitcoind-res.rc
 endif
 
-junod_LDADD = \
+junocashd_LDADD = \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_WALLET) \
   $(LIBBITCOIN_COMMON) \
@@ -718,7 +718,7 @@ junod_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-junod_LDADD += \
+junocashd_LDADD += \
   $(BOOST_LIBS) \
   $(BDB_LIBS) \
   $(EVENT_PTHREADS_LIBS) \
@@ -727,16 +727,16 @@ junod_LDADD += \
   $(LIBZCASH_LIBS)
 
 # bitcoin-cli binary #
-juno_cli_SOURCES = bitcoin-cli.cpp
-juno_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
-juno_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-juno_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+junocash_cli_SOURCES = bitcoin-cli.cpp
+junocash_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
+junocash_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+junocash_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-juno_cli_SOURCES += bitcoin-cli-res.rc
+junocash_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-juno_cli_LDADD = \
+junocash_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
@@ -750,18 +750,18 @@ juno_cli_LDADD = \
   $(LIBZCASH_LIBS)
 #
 
-# juno-tx binary #
-juno_tx_SOURCES = bitcoin-tx.cpp
-juno_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-juno_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-juno_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+# junocash-tx binary #
+junocash_tx_SOURCES = bitcoin-tx.cpp
+junocash_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+junocash_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+junocash_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-juno_tx_SOURCES += bitcoin-tx-res.rc
+junocash_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
-# FIXME: Is libzcash needed for juno_tx?
-juno_tx_LDADD = \
+# FIXME: Is libzcash needed for junocash_tx?
+junocash_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
@@ -774,7 +774,7 @@ juno_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH_LIBS)
 
-juno_tx_LDADD += $(BOOST_LIBS)
+junocash_tx_LDADD += $(BOOST_LIBS)
 #
 
 # zcash protocol primitives #
