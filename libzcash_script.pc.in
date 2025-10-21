@@ -3,8 +3,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: Zcash transparent script verification library
-Description: Library for verifying scripts against the Zcash consensus protocol.
+Name: Juno Cash transparent script verification library
+Description: Library for verifying scripts against the Juno Cash consensus protocol.
 Version: @PACKAGE_VERSION@
 Libs: -L${libdir} -lzcash_script
 Cflags: -I${includedir}
