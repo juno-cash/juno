@@ -1123,7 +1123,7 @@ AC_MSG_CHECKING([whether to build libraries])
 AM_CONDITIONAL([BUILD_BITCOIN_LIBS], [test x$build_bitcoin_libs = xyes])
 if test x$build_bitcoin_libs = xyes; then
   AC_DEFINE(HAVE_SCRIPT_LIB, 1, [Define this symbol if the script lib has been built])
-  AC_CONFIG_FILES([libjunocash_script.pc:libjunocash_script.pc.in])
+  AC_CONFIG_FILES([libzcash_script.pc])
 fi
 
 AC_MSG_RESULT($build_bitcoin_libs)
