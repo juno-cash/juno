@@ -168,7 +168,7 @@ bool AppInit(int argc, char* argv[])
                     confPath.string().c_str());
 
             if (!CreateDefaultConfigFile(confPath)) {
-                fprintf(stderr, _("Failed to create configuration file. Please create it manually.\n").c_str());
+                fprintf(stderr, "%s", _("Failed to create configuration file. Please create it manually.\n").c_str());
                 return false;
             }
 

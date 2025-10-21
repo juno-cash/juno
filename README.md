@@ -16,11 +16,59 @@ Forked from Zcash v6.10.0
 
 ## Quick Start
 
-### Build
+### Download Pre-Built Binaries
+
+Pre-built binaries for Windows, Linux, and macOS are available from [GitHub Releases](../../releases).
+
+Download the appropriate archive for your platform, verify the SHA256 checksum, and extract:
+
+```bash
+# Linux/macOS
+tar -xzf junocash-*-linux-x86_64.tar.gz
+cd junocash-*/bin
+./junocashd --version
+
+# Windows (extract the .zip file, then in Command Prompt)
+junocashd.exe --version
+```
+
+### Build from Source
+
+#### Native Build (Current Platform)
 
 ```bash
 ./zcutil/build.sh -j$(nproc)
 ```
+
+#### Multi-Platform Release Builds
+
+Build binaries for all supported platforms:
+
+```bash
+# Build all platforms (Windows, Linux, macOS Intel, macOS Apple Silicon)
+./zcutil/build-release.sh --all
+
+# Build specific platforms
+./zcutil/build-release.sh --linux --windows
+./zcutil/build-release.sh --macos-arm
+
+# Clean build with custom output directory
+./zcutil/build-release.sh --all --clean -o ./dist
+```
+
+Supported platforms:
+- **Linux x86_64** (`--linux`) - Native or cross-compiled
+- **Windows x86_64** (`--windows`) - Requires mingw-w64
+- **macOS Intel** (`--macos-intel`) - Requires macOS SDK (see below)
+- **macOS Apple Silicon** (`--macos-arm`) - Requires macOS SDK (see below)
+
+**macOS Cross-Compilation Setup**: For building macOS binaries from Linux, you need to set up the macOS SDK first. See [doc/macos-sdk-setup.md](doc/macos-sdk-setup.md) for detailed instructions.
+
+Release artifacts will be created in `./release/` with naming format:
+- `junocash-{version}-linux-x86_64.tar.gz`
+- `junocash-{version}-win64.zip`
+- `junocash-{version}-macos-x86_64.tar.gz`
+- `junocash-{version}-macos-arm64.tar.gz`
 
 ### Mainnet
 
@@ -169,10 +217,43 @@ You can throw some crumbs at the developers if you want
 - **Renamed**: Transparent-only commands prefixed with `t_` (t_getbalance, t_sendmany, etc.)
 - **Enhanced getblocktemplate**: Includes RandomX seed information
 
-### Build System
+### Build System & Platform Support
+
+#### Supported Platforms
+| Platform | Architecture | Build Status | Cross-Compile |
+|----------|--------------|--------------|---------------|
+| Linux | x86_64 | ✅ Tier 1 | Native |
+| Linux | ARM64 | ✅ Tier 3 | Supported |
+| Windows | x86_64 | ✅ Tier 3 | mingw-w64 |
+| macOS | x86_64 (Intel) | ✅ Tier 3 | SDK required |
+| macOS | ARM64 (Apple Silicon) | ✅ Tier 3 | SDK required |
+
+**Tier 1**: Primary platforms with full testing
+**Tier 3**: Supported platforms with basic testing
+
+#### Build Features
 - **RandomX integration**: Custom Makefile rules for x86/ARM64/RISC-V assembly
 - **Rust patches**: Custom zcash_protocol crate for address HRPs (depends/patches/zcash_protocol/)
-- **Platform**: Multi-architecture support (x86_64, ARM64, RISC-V JIT compilers)
+- **Cross-compilation**: Deterministic builds via depends system
+- **Automated releases**: GitHub Actions workflows for all platforms
+
+#### Build Dependencies
+```bash
+# Debian/Ubuntu
+sudo apt-get install build-essential pkg-config autoconf automake libtool \
+  curl git python3 bison
+
+# For Windows cross-compilation
+sudo apt-get install mingw-w64
+
+# For macOS cross-compilation
+# See doc/macos-sdk-setup.md for SDK setup
+```
+
+#### CI/CD
+- **Continuous Integration**: Automated builds on all platforms for every PR
+- **Release Automation**: Tag-based releases build and publish binaries automatically
+- **Workflow**: `.github/workflows/ci.yml` and `.github/workflows/release.yml`
 
 ---
 
@@ -196,7 +277,9 @@ You can throw some crumbs at the developers if you want
 - Test on regtest/testnet before mainnet
 
 ### Known Considerations
-1. Platform support includes x86_64, ARM64 (Apple Silicon M1/M2/M3/M4, etc.), and RISC-V architectures
+1. This is experimental software - thorough testing recommended before production use
+2. Cross-platform builds available for Windows, Linux, and macOS (Intel & Apple Silicon)
+3. For platform-specific issues, see [GitHub Issues](../../issues)
 
 ---
 

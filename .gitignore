@@ -2,12 +2,6 @@
 *.deb
 *.exe
 src/bitcoin
-src/zcashd
-src/zcashd-wallet-tool
-src/zcash-cli
-src/zcash-gtest
-src/zcash-inspect
-src/zcash-tx
 src/junocashd
 src/junocashd-wallet-tool
 src/junocash-cli
@@ -138,3 +132,4 @@ src/fuzz.cpp
 .updatecheck-token
 .env
 poetry.lock
+release/
