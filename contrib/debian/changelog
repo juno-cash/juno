@@ -1,3 +1,13 @@
+junocash (0.9.0) stable; urgency=medium
+
+  * Initial Juno Cash release forked from Zcash 6.10.0
+  * RandomX CPU mining
+  * 21M coin supply with fair emission
+  * Mandatory Orchard shielded transactions
+  * 60-second block time
+
+ -- Juno Cash Developers  Mon, 21 Oct 2025 00:00:00 +0000
+
 zcash (6.10.0) stable; urgency=medium
 
   * 6.10.0 release.

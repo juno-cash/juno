@@ -1,23 +1,22 @@
-Source: zcash
+Source: junocash
 Section: utils
 Priority: optional
-Maintainer: Electric Coin Company <team@electriccoin.co>
-Homepage: https://z.cash
+Maintainer: Juno Cash Developers
+Homepage: https://juno.cash
 Build-Depends: autoconf, automake, bsdmainutils, build-essential,
  git, g++-multilib, libc6-dev, libtool,
  m4, ncurses-dev, pkg-config, python,
  unzip, wget, zlib1g-dev
-Vcs-Git: https://github.com/zcash/zcash.git
-Vcs-Browser: https://github.com/zcash/zcash
+Vcs-Git: https://github.com/junocash/juno.git
+Vcs-Browser: https://github.com/junocash/juno
 
-Package: zcash
+Package: junocash
 Architecture: amd64
 Depends: ${shlibs:Depends}
-Description: Zcash is HTTPS for money
- Initially based on Bitcoin's design, Zcash has been developed from
- the Zerocash protocol to offer a far higher standard of privacy and
- anonymity. It uses a sophisticated zero-knowledge proving scheme to
- preserve confidentiality and hide the connections between shielded
- transactions.
- This package provides the daemon, zcashd, and a CLI tool, zcash-cli,
+Description: Privacy-focused cryptocurrency with CPU mining
+ Juno Cash is a privacy-focused cryptocurrency with CPU mining (RandomX)
+ and a 21M coin supply. Forked from Zcash v6.10.0, it features mandatory
+ Orchard shielded transactions, 60-second blocks, and 100% mining rewards
+ with no developer tax.
+ This package provides the daemon, junocashd, and a CLI tool, junocash-cli,
  to interact with the daemon.

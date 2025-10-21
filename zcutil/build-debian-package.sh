@@ -18,7 +18,7 @@ if [ ! -d $BUILD_PATH ]; then
     mkdir $BUILD_PATH
 fi
 
-PACKAGE_VERSION=$($SRC_PATH/src/junocashd --version | grep version | cut -d' ' -f4 | tr -d v)
+PACKAGE_VERSION=$($SRC_PATH/src/junocashd --version | grep version | cut -d' ' -f5 | tr -d v)
 DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64"
 
