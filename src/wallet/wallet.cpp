@@ -4243,6 +4243,18 @@ bool CWallet::CheckNetworkInfo(std::pair<std::string, std::string> readNetworkIn
 {
     LOCK(cs_wallet);
     std::pair<string, string> networkInfo(PACKAGE_NAME, networkIdString);
+
+    // Allow migration from old package names to "JunoCash" on same network
+    if ((readNetworkInfo.first == "Zcash" || readNetworkInfo.first == "Juno Cash") &&
+        networkInfo.first == "JunoCash" &&
+        readNetworkInfo.second == networkInfo.second) {
+        LogPrintf("Accepting wallet from %s for %s (migration compatibility)\n",
+                  readNetworkInfo.first, networkInfo.first);
+        // Note: We don't update the database here to avoid lock conflicts during wallet loading.
+        // The wallet will continue to work with the old package name stored.
+        return true;
+    }
+
     return readNetworkInfo == networkInfo;
 }
 

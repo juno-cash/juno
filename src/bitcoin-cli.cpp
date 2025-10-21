@@ -113,10 +113,31 @@ static int AppInitRPC(int argc, char* argv[])
     }
     try {
         ReadConfigFile(GetArg("-conf", BITCOIN_CONF_FILENAME), mapArgs, mapMultiArgs);
+    } catch (const missing_zcash_conf& e) {
+        auto confFilename = GetArg("-conf", BITCOIN_CONF_FILENAME);
+
+        // If using default config filename, try fallback to legacy juno.conf
+        if (confFilename == BITCOIN_CONF_FILENAME) {
+            auto legacyConfPath = GetConfigFile("juno.conf");
+            if (fs::exists(legacyConfPath)) {
+                try {
+                    ReadConfigFile("juno.conf", mapArgs, mapMultiArgs);
+                    // Successfully read legacy config
+                    goto config_loaded;
+                } catch (const std::exception& e2) {
+                    fprintf(stderr, "Error reading legacy configuration file: %s\n", e2.what());
+                    return EXIT_FAILURE;
+                }
+            }
+        }
+
+        fprintf(stderr,"Error reading configuration file: %s\n", e.what());
+        return EXIT_FAILURE;
     } catch (const std::exception& e) {
         fprintf(stderr,"Error reading configuration file: %s\n", e.what());
         return EXIT_FAILURE;
     }
+config_loaded:
     // Check for -testnet or -regtest parameter (BaseParams() calls are only valid after this clause)
     try {
         SelectBaseParams(ChainNameFromCommandLine());

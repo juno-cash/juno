@@ -2,13 +2,13 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
-TESTS += juno-gtest
-noinst_PROGRAMS += juno-gtest
+TESTS += junocash-gtest
+noinst_PROGRAMS += junocash-gtest
 
 # tool for generating our public parameters.
 # test_checktransaction.cpp MUST be before
 # any test that calls SelectParams().
-juno_gtest_SOURCES = \
+junocash_gtest_SOURCES = \
 	gtest/main.cpp \
 	gtest/utils.cpp \
 	gtest/utils.h \
@@ -58,7 +58,7 @@ juno_gtest_SOURCES = \
 	gtest/test_zip32.cpp \
 	gtest/test_coins.cpp
 if ENABLE_WALLET
-juno_gtest_SOURCES += \
+junocash_gtest_SOURCES += \
 	wallet/gtest/test_wallet_zkeys.cpp \
 	wallet/gtest/test_orchard_zkeys.cpp \
 	wallet/gtest/test_note_selection.cpp \
@@ -68,10 +68,10 @@ juno_gtest_SOURCES += \
 	wallet/gtest/test_rpc_wallet.cpp
 endif
 
-juno_gtest_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-juno_gtest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+junocash_gtest_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+junocash_gtest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
-juno_gtest_LDADD = \
+junocash_gtest_LDADD = \
   -lgtest -lgmock \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_CLI) \
@@ -90,7 +90,7 @@ juno_gtest_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-juno_gtest_LDADD += \
+junocash_gtest_LDADD += \
   $(LIBZCASH_SCRIPT) \
   $(BOOST_LIBS) \
   $(BOOST_UNIT_TEST_FRAMEWORK_LIB) \
@@ -102,10 +102,10 @@ juno_gtest_LDADD += \
   $(LIBZCASH) \
   $(LIBZCASH_LIBS)
 
-juno_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+junocash_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 
-juno-gtest_check: juno-gtest FORCE
-	./juno-gtest
+junocash-gtest_check: junocash-gtest FORCE
+	./junocash-gtest
 
-juno-gtest-expected-failures: juno-gtest FORCE
-	./juno-gtest --gtest_filter=*DISABLED_* --gtest_also_run_disabled_tests
+junocash-gtest-expected-failures: junocash-gtest FORCE
+	./junocash-gtest --gtest_filter=*DISABLED_* --gtest_also_run_disabled_tests

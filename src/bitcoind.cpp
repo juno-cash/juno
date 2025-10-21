@@ -163,6 +163,23 @@ bool AppInit(int argc, char* argv[])
             auto confFilename = GetArg("-conf", BITCOIN_CONF_FILENAME);
             auto confPath = GetConfigFile(confFilename);
 
+            // If using default config filename, try fallback to legacy juno.conf
+            if (confFilename == BITCOIN_CONF_FILENAME) {
+                auto legacyConfPath = GetConfigFile("juno.conf");
+                if (fs::exists(legacyConfPath)) {
+                    fprintf(stdout, _("Using legacy configuration file: %s\n").c_str(),
+                            legacyConfPath.string().c_str());
+                    try {
+                        ReadConfigFile("juno.conf", mapArgs, mapMultiArgs);
+                        // Successfully read legacy config
+                        goto config_loaded;
+                    } catch (const std::exception& e2) {
+                        fprintf(stderr, _("Error reading legacy configuration file: %s\n").c_str(), e2.what());
+                        return false;
+                    }
+                }
+            }
+
             // Auto-create config file with helpful defaults
             fprintf(stdout, _("Configuration file not found. Creating default configuration at:\n%s\n").c_str(),
                     confPath.string().c_str());
@@ -183,6 +200,7 @@ bool AppInit(int argc, char* argv[])
             fprintf(stderr,"Error reading configuration file: %s\n", e.what());
             return false;
         }
+config_loaded:
 
         // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
         try {
