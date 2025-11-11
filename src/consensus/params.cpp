@@ -151,7 +151,11 @@ namespace Consensus {
     }
 
     int Params::FundingPeriodIndex(int fundingStreamStartHeight, int nHeight) const {
-        assert(fundingStreamStartHeight <= nHeight);
+        // Juno Cash: With all upgrades active from genesis, this assertion can fail during
+        // early chain initialization. Return 0 if we're before the funding stream starts.
+        if (fundingStreamStartHeight > nHeight) {
+            return 0;
+        }
 
         int firstHalvingHeight = HalvingHeight(fundingStreamStartHeight, 1);
 
