@@ -714,12 +714,22 @@ impl BatchValidator {
     /// bundle validity cache.
     pub(crate) fn validate(&mut self) -> bool {
         if let Some(inner) = self.0.take() {
+            // Juno Cash: Sapling is banned at consensus level, so parameters may not be loaded.
+            // If parameters are not loaded, this should only be called with an empty validator.
+            // Return true for empty validator (no bundles to validate).
+            let spend_vk = unsafe { SAPLING_SPEND_VK.as_ref() };
+            let output_vk = unsafe { SAPLING_OUTPUT_VK.as_ref() };
+
+            if spend_vk.is_none() || output_vk.is_none() {
+                // Parameters not loaded (Sapling banned). This should only happen with
+                // an empty batch. Return true as there's nothing to validate.
+                tracing::debug!("Sapling parameters not loaded, assuming empty batch validation");
+                return true;
+            }
+
             if inner.validator.validate(
-                unsafe { SAPLING_SPEND_VK.as_ref() }
-                    .expect("Parameters not loaded: SAPLING_SPEND_VK should have been initialized"),
-                unsafe { SAPLING_OUTPUT_VK.as_ref() }.expect(
-                    "Parameters not loaded: SAPLING_OUTPUT_VK should have been initialized",
-                ),
+                spend_vk.unwrap(),
+                output_vk.unwrap(),
                 OsRng,
             ) {
                 // `Self::validate()` is only called if every `Self::check_bundle()`

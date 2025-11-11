@@ -3135,6 +3135,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             pindex->hashSproutAnchor = tree.root();
             // The genesis block contained no JoinSplits
             pindex->hashFinalSproutRoot = pindex->hashSproutAnchor;
+
+            // Juno Cash: Initialize Sapling and Orchard roots for genesis block
+            // since all upgrades are active from genesis
+            if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_SAPLING)) {
+                pindex->hashFinalSaplingRoot = SaplingMerkleTree::empty_root();
+            }
+            if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_NU5)) {
+                pindex->hashFinalOrchardRoot = OrchardMerkleFrontier::empty_root();
+            }
         }
         return true;
     }
