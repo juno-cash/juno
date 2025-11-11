@@ -906,6 +906,20 @@ bool ContextualCheckTransaction(
 
     auto& orchard_bundle = tx.GetOrchardBundle();
 
+    // Juno Cash: Ban Sprout and Sapling at consensus level (Orchard-only chain)
+    if (!tx.vJoinSplit.empty()) {
+        return state.DoS(
+            DOS_LEVEL_BLOCK,
+            error("ContextualCheckTransaction(): Sprout JoinSplits not supported on Orchard-only chain"),
+            REJECT_INVALID, "bad-txns-sprout-not-supported");
+    }
+    if (tx.GetSaplingSpendsCount() > 0 || tx.GetSaplingOutputsCount() > 0) {
+        return state.DoS(
+            DOS_LEVEL_BLOCK,
+            error("ContextualCheckTransaction(): Sapling spends/outputs not supported on Orchard-only chain"),
+            REJECT_INVALID, "bad-txns-sapling-not-supported");
+    }
+
     // Rules that apply only to Sprout
     if (beforeOverwinter) {
         // Reject transactions which are intended for Overwinter and beyond
