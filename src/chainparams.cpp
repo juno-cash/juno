@@ -402,7 +402,7 @@ public:
         keyConstants.strNetworkID = "regtest";
         strCurrencyUnits = "RJUNO";
         keyConstants.bip44CoinType = 8135;
-        consensus.fCoinbaseMustBeShielded = false;
+        consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 0;
         consensus.nPreBlossomSubsidyHalvingInterval = Consensus::PRE_BLOSSOM_REGTEST_HALVING_INTERVAL;
         consensus.nPostBlossomSubsidyHalvingInterval = POST_BLOSSOM_HALVING_INTERVAL(Consensus::PRE_BLOSSOM_REGTEST_HALVING_INTERVAL);
