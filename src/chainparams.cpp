@@ -88,7 +88,7 @@ public:
     CMainParams() {
         keyConstants.strNetworkID = "main";
         strCurrencyUnits = "ZEC";
-        keyConstants.bip44CoinType = 133; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
+        keyConstants.bip44CoinType = 8133; // Juno Cash coin type
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
         consensus.nPreBlossomSubsidyHalvingInterval = Consensus::PRE_BLOSSOM_HALVING_INTERVAL;
@@ -177,14 +177,14 @@ public:
         consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000000000001517f0d837f57259");
 
         /**
-         * The message start string should be awesome! ⓩ❤
+         * Network magic bytes for Juno Cash - derived from Bitcoin block 919123 hash
          */
-        pchMessageStart[0] = 0x24;
-        pchMessageStart[1] = 0xe9;
-        pchMessageStart[2] = 0x27;
-        pchMessageStart[3] = 0x64;
+        pchMessageStart[0] = 0xb5;
+        pchMessageStart[1] = 0x0c;
+        pchMessageStart[2] = 0x07;
+        pchMessageStart[3] = 0x02;
         vAlertPubKey = ParseHex("04b7ecf0baa90495ceb4e4090f6b2fd37eec1e9c85fac68a487f3ce11589692e4a317479316ee814e066638e1db54e37a10689b70286e6315b1087b6615d179264");
-        nDefaultPort = 8233;
+        nDefaultPort = 8234;
         nPruneAfterHeight = 100000;
 
         genesis = CreateGenesisBlock(
@@ -267,7 +267,7 @@ public:
     CTestNetParams() {
         keyConstants.strNetworkID = "test";
         strCurrencyUnits = "TAZ";
-        keyConstants.bip44CoinType = 1;
+        keyConstants.bip44CoinType = 8134;
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
         consensus.nPreBlossomSubsidyHalvingInterval = Consensus::PRE_BLOSSOM_HALVING_INTERVAL;
@@ -372,12 +372,12 @@ public:
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("000000000000000000000000000000000000000000000000000000263c0984a2");
 
-        pchMessageStart[0] = 0xfa;
-        pchMessageStart[1] = 0x1a;
-        pchMessageStart[2] = 0xf9;
-        pchMessageStart[3] = 0xbf;
+        pchMessageStart[0] = 0xa7;
+        pchMessageStart[1] = 0x23;
+        pchMessageStart[2] = 0xe1;
+        pchMessageStart[3] = 0x6c;
         vAlertPubKey = ParseHex("044e7a1553392325c871c5ace5d6ad73501c66f4c185d6b0453cf45dec5a1322e705c672ac1a27ef7cdaf588c10effdf50ed5f95f85f2f54a5f6159fca394ed0c6");
-        nDefaultPort = 18233;
+        nDefaultPort = 18234;
         nPruneAfterHeight = 1000;
 
         genesis = CreateGenesisBlock(
@@ -435,7 +435,7 @@ public:
     CRegTestParams() {
         keyConstants.strNetworkID = "regtest";
         strCurrencyUnits = "REG";
-        keyConstants.bip44CoinType = 1;
+        keyConstants.bip44CoinType = 8135;
         consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidySlowStartInterval = 0;
         consensus.nPreBlossomSubsidyHalvingInterval = Consensus::PRE_BLOSSOM_REGTEST_HALVING_INTERVAL;
@@ -517,11 +517,11 @@ public:
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");
 
-        pchMessageStart[0] = 0xaa;
-        pchMessageStart[1] = 0xe8;
-        pchMessageStart[2] = 0x3f;
-        pchMessageStart[3] = 0x5f;
-        nDefaultPort = 18344;
+        pchMessageStart[0] = 0x81;
+        pchMessageStart[1] = 0x1d;
+        pchMessageStart[2] = 0x21;
+        pchMessageStart[3] = 0xf6;
+        nDefaultPort = 18345;
         nPruneAfterHeight = 1000;
 
         genesis = CreateGenesisBlock(

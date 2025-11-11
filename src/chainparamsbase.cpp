@@ -60,7 +60,7 @@ class CBaseRegTestParams : public CBaseChainParams
 public:
     CBaseRegTestParams()
     {
-        nRPCPort = 18232;
+        nRPCPort = 18344;
         strDataDir = "regtest";
     }
 };
