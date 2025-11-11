@@ -2,12 +2,12 @@
 *.deb
 *.exe
 src/bitcoin
-src/zcashd
-src/zcashd-wallet-tool
-src/zcash-cli
-src/zcash-gtest
-src/zcash-inspect
-src/zcash-tx
+src/junocashd
+src/junocashd-wallet-tool
+src/junocash-cli
+src/junocash-gtest
+src/junocash-inspect
+src/junocash-tx
 src/test/test_bitcoin
 zcutil/bin/
 
