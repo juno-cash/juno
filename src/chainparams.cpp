@@ -65,7 +65,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
  */
 static CBlock CreateGenesisBlock(uint32_t nTime, const uint256& nNonce, const std::vector<unsigned char>& nSolution, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
-    const char* pszTimestamp = "Zcash0b9c4eef8b7cc417ee5001e3500984b6fea35683a7cac141a043c42064835d34";
+    const char* pszTimestamp = "b7c923155000000000007ca8a49b1fc30e20bd9d5a3ca9a092af920f2f27b0c3";
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nSolution, nBits, nVersion, genesisReward);
 }
@@ -198,10 +198,7 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("z.cash", "dnsseed.z.cash")); // Zcash
-        vSeeds.push_back(CDNSSeedData("str4d.xyz", "dnsseed.str4d.xyz")); // @str4d
-        vSeeds.push_back(CDNSSeedData("zfnd.org", "mainnet.seeder.zfnd.org")); // Zcash Foundation
-        vSeeds.push_back(CDNSSeedData("yolo.money", "mainnet.is.yolo.money")); // gtank
+        vSeeds.push_back(CDNSSeedData("junomoneta.io", "dnsseed.junomoneta.io")); 
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
@@ -211,47 +208,20 @@ public:
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
 
+        // Juno Cash: Reset checkpoint data for new chain
         checkpointData = (CCheckpointData) {
             boost::assign::map_list_of
-            (      0, consensus.hashGenesisBlock)
-            (   2500, uint256S("0x00000006dc968f600be11a86cbfbf7feb61c7577f45caced2e82b6d261d19744"))
-            (  15000, uint256S("0x00000000b6bc56656812a5b8dcad69d6ad4446dec23b5ec456c18641fb5381ba"))
-            (  67500, uint256S("0x000000006b366d2c1649a6ebb4787ac2b39c422f451880bc922e3a6fbd723616"))
-            ( 100000, uint256S("0x000000001c5c82cd6baccfc0879e3830fd50d5ede17fa2c37a9a253c610eb285"))
-            ( 133337, uint256S("0x0000000002776ccfaf06cc19857accf3e20c01965282f916b8a886e3e4a05be9"))
-            ( 180000, uint256S("0x000000001205b742eac4a1b3959635bdf8aeada078d6a996df89740f7b54351d"))
-            ( 222222, uint256S("0x000000000cafb9e56445a6cabc8057b57ee6fcc709e7adbfa195e5c7fac61343"))
-            ( 270000, uint256S("0x00000000025c1cfa0258e33ab050aaa9338a3d4aaa3eb41defefc887779a9729"))
-            ( 304600, uint256S("0x00000000028324e022a45014c4a4dc51e95d41e6bceb6ad554c5b65d5cea3ea5"))
-            ( 410100, uint256S("0x0000000002c565958f783a24a4ac17cde898ff525e75ed9baf66861b0b9fcada"))
-            ( 497000, uint256S("0x0000000000abd333f0acca6ffdf78a167699686d6a7d25c33fca5f295061ffff"))
-            ( 525000, uint256S("0x0000000001a36c500378be8862d9bf1bea8f1616da6e155971b608139cc7e39b"))
-            ( 650000, uint256S("0x0000000000a0a3fbbd739fb4fcbbfefff44efffc2064ca69a59d5284a2da26e2"))
-            ( 800000, uint256S("0x00000000013f1f4e5634e896ebdbe63dec115547c1480de0d83c64426f913c27"))
-            (1000000, uint256S("0x000000000062eff9ae053020017bfef24e521a2704c5ec9ead2a4608ac70fc7a"))
-            (1200000, uint256S("0x0000000000347d5011108fdcf667c93e622e8635c94e586556898e41db18d192"))
-            (1400000, uint256S("0x0000000001155ecec0ad3924d47ad476c0a5ed7527b8776f53cbda1a780b9f76"))
-            (1600000, uint256S("0x0000000000aae69fb228f90e77f34c24b7920667eaca726c3a3939536f03dcfc"))
-            (1860000, uint256S("0x000000000043a968c78af5fb8133e00e6fe340051c19dd969e53ab62bf3dc22a"))
-            (2000000, uint256S("0x00000000010accaf2f87934765dc2e0bf4823a2b1ae2c1395b334acfce52ad68"))
-            (2200000, uint256S("0x0000000001a0139c4c4d0e8f68cc562227c6003f4b1b640a3d921aeb8c3d2e3d"))
-            (2400000, uint256S("0x0000000000294d1c8d87a1b6566d302aa983691bc3cab0583a245389bbb9d285"))
-            (2600000, uint256S("0x0000000000b5ad92fcec0069d590f674d05ec7d96b1ff727863ea390950c4e49"))
-            (2800000, uint256S("0x00000000011a226fb25d778d65b055605a82da016989b7788e0ce83c4f8d64f7"))
-            (3000000, uint256S("0x0000000000573729e4db33678233e5dc0cc721c9c09977c64dcaa3f6344de8e9")),
-            1752983473,     // * UNIX timestamp of last checkpoint block
-            15537904,       // * total number of transactions between genesis and last checkpoint
-            5967            // * estimated number of transactions per day after checkpoint
-                            //   (total number of tx * 48 * 24) / checkpoint block height
+            (0, consensus.hashGenesisBlock),
+            0,  // UNIX timestamp of last checkpoint block
+            0,  // total number of transactions between genesis and last checkpoint
+            0   // estimated number of transactions per day after checkpoint
         };
 
-        // Hardcoded fallback value for the Sprout shielded value pool balance
-        // for nodes that have not reindexed since the introduction of monitoring
-        // in #2795.
-        nSproutValuePoolCheckpointHeight = 520633;
-        nSproutValuePoolCheckpointBalance = 22145062442933;
+        // Juno Cash: Reset Sprout value pool checkpoint (no Sprout activity on new chain)
+        nSproutValuePoolCheckpointHeight = 0;
+        nSproutValuePoolCheckpointBalance = 0;
         fZIP209Enabled = true;
-        hashSproutValuePoolCheckpointBlock = uint256S("0000000000c7b46b6bc04b4cbf87d8bb08722aebd51232619b214f7273f8460e");
+        hashSproutValuePoolCheckpointBlock = consensus.hashGenesisBlock;
 
         // Juno Cash: No founders reward (0% dev tax)
         vFoundersRewardAddress = {};
@@ -391,9 +361,7 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("z.cash", "dnsseed.testnet.z.cash")); // Zcash
-        vSeeds.push_back(CDNSSeedData("zfnd.org", "testnet.seeder.zfnd.org")); // Zcash Foundation
-        vSeeds.push_back(CDNSSeedData("yolo.money", "testnet.is.yolo.money")); // gtank
+        vSeeds.push_back(CDNSSeedData("junomoneta.io", "dnsseed.testnet.junomoneta.io"));
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
@@ -404,22 +372,20 @@ public:
         fTestnetToBeDeprecatedFieldRPC = true;
 
 
+        // Juno Cash: Reset checkpoint data for new chain
         checkpointData = (CCheckpointData) {
             boost::assign::map_list_of
-            (0, consensus.hashGenesisBlock)
-            (38000, uint256S("0x001e9a2d2e2892b88e9998cf7b079b41d59dd085423a921fe8386cecc42287b8")),
-            1486897419,  // * UNIX timestamp of last checkpoint block
-            47163,       // * total number of transactions between genesis and last checkpoint
-            715          //   total number of tx / (checkpoint block height / (24 * 24))
+            (0, consensus.hashGenesisBlock),
+            0,  // UNIX timestamp of last checkpoint block
+            0,  // total number of transactions between genesis and last checkpoint
+            0   // estimated number of transactions per day after checkpoint
         };
 
-        // Hardcoded fallback value for the Sprout shielded value pool balance
-        // for nodes that have not reindexed since the introduction of monitoring
-        // in #2795.
-        nSproutValuePoolCheckpointHeight = 440329;
-        nSproutValuePoolCheckpointBalance = 40000029096803;
+        // Juno Cash: Reset Sprout value pool checkpoint (no Sprout activity on new chain)
+        nSproutValuePoolCheckpointHeight = 0;
+        nSproutValuePoolCheckpointBalance = 0;
         fZIP209Enabled = true;
-        hashSproutValuePoolCheckpointBlock = uint256S("000a95d08ba5dcbabe881fc6471d11807bcca7df5f1795c99f3ec4580db4279b");
+        hashSproutValuePoolCheckpointBlock = consensus.hashGenesisBlock;
 
         // Juno Cash: No founders reward (0% dev tax)
         vFoundersRewardAddress = {};
@@ -542,9 +508,10 @@ public:
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
 
+        // Juno Cash: Use genesis hash for regtest checkpoint
         checkpointData = (CCheckpointData){
             boost::assign::map_list_of
-            ( 0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")),
+            (0, consensus.hashGenesisBlock),
             0,
             0,
             0
