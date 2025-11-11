@@ -6,7 +6,9 @@
 
 #include "miner.h"
 #ifdef ENABLE_MINING
-#include "pow/tromp/equi_miner.h"
+// Juno Cash: Legacy Equihash - kept for reference
+// #include "pow/tromp/equi_miner.h"
+#include "crypto/randomx_wrapper.h"
 #endif
 
 #include "amount.h"
@@ -17,7 +19,8 @@
 #include "consensus/upgrades.h"
 #include "consensus/validation.h"
 #ifdef ENABLE_MINING
-#include "crypto/equihash.h"
+// Juno Cash: Legacy Equihash - kept for reference
+// #include "crypto/equihash.h"
 #endif
 #include "hash.h"
 #include "key_io.h"
@@ -836,9 +839,12 @@ static bool ProcessBlockFound(const CBlock* pblock, const CChainParams& chainpar
 
 void static BitcoinMiner(const CChainParams& chainparams)
 {
-    LogPrintf("ZcashMiner started\n");
+    LogPrintf("JunoMonetaMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("zcash-miner");
+    RenameThread("juno-miner");
+
+    // Initialize RandomX
+    RandomX_Init();
 
     // Each thread has its own counter
     unsigned int nExtraNonce = 0;
@@ -846,12 +852,14 @@ void static BitcoinMiner(const CChainParams& chainparams)
     std::optional<MinerAddress> maybeMinerAddress;
     GetMainSignals().AddressForMining(maybeMinerAddress);
 
-    unsigned int n = chainparams.GetConsensus().nEquihashN;
-    unsigned int k = chainparams.GetConsensus().nEquihashK;
+    // Juno Cash: Legacy Equihash parameters removed
+    // unsigned int n = chainparams.GetConsensus().nEquihashN;
+    // unsigned int k = chainparams.GetConsensus().nEquihashK;
+    // std::string solver = GetArg("-equihashsolver", "default");
+    // assert(solver == "tromp" || solver == "default");
+    // LogPrint("pow", "Using Equihash solver \"%s\" with n = %u, k = %u\n", solver, n, k);
 
-    std::string solver = GetArg("-equihashsolver", "default");
-    assert(solver == "tromp" || solver == "default");
-    LogPrint("pow", "Using Equihash solver \"%s\" with n = %u, k = %u\n", solver, n, k);
+    LogPrint("pow", "Using RandomX proof-of-work algorithm\n");
 
     std::mutex m_cs;
     bool cancelSolver = false;
@@ -918,8 +926,33 @@ void static BitcoinMiner(const CChainParams& chainparams)
             CBlock *pblock = &pblocktemplate->block;
             IncrementExtraNonce(pblocktemplate.get(), pindexPrev, nExtraNonce, chainparams.GetConsensus());
 
-            LogPrintf("Running ZcashMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
+            LogPrintf("Running JunoMonetaMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
                 ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
+
+            // Calculate RandomX seed for this block height
+            uint64_t blockHeight = pindexPrev->nHeight + 1;
+            uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
+            uint256 seedHash;
+
+            if (seedHeight == 0) {
+                // Genesis epoch - use genesis seed
+                seedHash.SetNull();
+                *seedHash.begin() = 0x08;
+                LogPrint("pow", "Mining block %u in genesis epoch (seed height 0)\n", blockHeight);
+            } else {
+                // Get seed block hash from chain
+                CBlockIndex* pindexSeed = chainActive[seedHeight];
+                if (!pindexSeed) {
+                    LogPrintf("Error: Could not find seed block at height %u\n", seedHeight);
+                    continue;
+                }
+                seedHash = pindexSeed->GetBlockHash();
+                LogPrint("pow", "Mining block %u with seed from height %u: %s\n",
+                         blockHeight, seedHeight, seedHash.GetHex());
+            }
+
+            // Update RandomX cache for this seed
+            RandomX_SetMainSeedHash(seedHash.begin(), 32);
 
             //
             // Search
@@ -928,41 +961,34 @@ void static BitcoinMiner(const CChainParams& chainparams)
             arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
 
             while (true) {
-                // Hash state
-                eh_HashState state = EhInitialiseState(n, k);
-
-                // I = the block header minus nonce and solution.
+                // I = the block header minus nonce and solution
                 CEquihashInput I{*pblock};
                 CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                 ss << I;
+                ss << pblock->nNonce;
 
-                // H(I||...
-                state.Update((unsigned char*)&ss[0], ss.size());
+                // Calculate RandomX hash
+                uint256 hash;
+                if (!RandomX_Hash_Block(ss.data(), ss.size(), hash)) {
+                    LogPrintf("RandomX hashing failed\n");
+                    break;
+                }
 
-                // H(I||V||...
-                eh_HashState curr_state = state;
-                curr_state.Update(pblock->nNonce.begin(), pblock->nNonce.size());
+                // Increment hash counter for metrics
+                ehSolverRuns.increment();
 
-                // (x_1, x_2, ...) = A(I, V, n, k)
-                LogPrint("pow", "Running Equihash solver \"%s\" with nNonce = %s\n",
-                         solver, pblock->nNonce.ToString());
+                // Store the hash in nSolution (32 bytes)
+                pblock->nSolution.resize(32);
+                memcpy(pblock->nSolution.data(), hash.begin(), 32);
 
-                std::function<bool(std::vector<unsigned char>)> validBlock =
-                        [&pblock, &hashTarget, &chainparams, &m_cs, &cancelSolver, &minerAddress]
-                        (std::vector<unsigned char> soln) {
-                    // Write the solution to the hash and compute the result.
-                    LogPrint("pow", "- Checking solution against target\n");
-                    pblock->nSolution = soln;
-                    solutionTargetChecks.increment();
-
-                    if (UintToArith256(pblock->GetHash()) > hashTarget) {
-                        return false;
-                    }
-
+                // Check if hash meets target
+                solutionTargetChecks.increment();
+                if (UintToArith256(hash) <= hashTarget) {
                     // Found a solution
                     SetThreadPriority(THREAD_PRIORITY_NORMAL);
-                    LogPrintf("ZcashMiner:\n");
-                    LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", pblock->GetHash().GetHex(), hashTarget.GetHex());
+                    LogPrintf("JunoMonetaMiner:\n");
+                    LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex(), hashTarget.GetHex());
+
                     if (ProcessBlockFound(pblock, chainparams)) {
                         // Ignore chain updates caused by us
                         std::lock_guard<std::mutex> lock{m_cs};
@@ -971,41 +997,12 @@ void static BitcoinMiner(const CChainParams& chainparams)
                     SetThreadPriority(THREAD_PRIORITY_LOWEST);
                     std::visit(KeepMinerAddress(), minerAddress);
 
-                    // In regression test mode, stop mining after a block is found.
+                    // In regression test mode, stop mining after a block is found
                     if (chainparams.MineBlocksOnDemand()) {
-                        // Increment here because throwing skips the call below
-                        ehSolverRuns.increment();
                         throw boost::thread_interrupted();
                     }
 
-                    return true;
-                };
-                std::function<bool(EhSolverCancelCheck)> cancelled = [&m_cs, &cancelSolver](EhSolverCancelCheck pos) {
-                    std::lock_guard<std::mutex> lock{m_cs};
-                    return cancelSolver;
-                };
-
-                // TODO: factor this out into a function with the same API for each solver.
-                if (solver == "tromp") {
-                    std::function<void()> incrementRuns = [&]() { ehSolverRuns.increment(); };
-                    std::function<bool(size_t s, const std::vector<uint32_t>&)> checkSolution = [&](size_t s, const std::vector<uint32_t>& index_vector) {
-                        LogPrint("pow", "Checking solution %d\n", s+1);
-                        return validBlock(GetMinimalFromIndices(index_vector, DIGITBITS));
-                    };
-                    equihash_solve(curr_state.inner, incrementRuns, checkSolution);
-                } else {
-                    try {
-                        // If we find a valid block, we rebuild
-                        bool found = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
-                        ehSolverRuns.increment();
-                        if (found) {
-                            break;
-                        }
-                    } catch (EhSolverCancelledException&) {
-                        LogPrint("pow", "Equihash solver cancelled\n");
-                        std::lock_guard<std::mutex> lock{m_cs};
-                        cancelSolver = false;
-                    }
+                    break;
                 }
 
                 // Check for stop or if block needs to be rebuilt

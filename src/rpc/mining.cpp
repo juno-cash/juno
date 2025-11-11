@@ -12,7 +12,9 @@
 #include "consensus/validation.h"
 #include "core_io.h"
 #ifdef ENABLE_MINING
-#include "crypto/equihash.h"
+// Juno Cash: Legacy Equihash - kept for reference
+// #include "crypto/equihash.h"
+#include "crypto/randomx_wrapper.h"
 #endif
 #include "deprecation.h"
 #include "init.h"
@@ -220,53 +222,75 @@ UniValue generate(const UniValue& params, bool fHelp)
     }
     unsigned int nExtraNonce = 0;
     UniValue blockHashes(UniValue::VARR);
-    unsigned int n = Params().GetConsensus().nEquihashN;
-    unsigned int k = Params().GetConsensus().nEquihashK;
+    // Juno Cash: Legacy Equihash parameters removed
+    // unsigned int n = Params().GetConsensus().nEquihashN;
+    // unsigned int k = Params().GetConsensus().nEquihashK;
     while (nHeight < nHeightEnd)
     {
         std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(minerAddress));
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
         CBlock *pblock = &pblocktemplate->block;
+        CBlockIndex* pindexPrev;
         {
             LOCK(cs_main);
-            IncrementExtraNonce(pblocktemplate.get(), chainActive.Tip(), nExtraNonce, Params().GetConsensus());
+            pindexPrev = chainActive.Tip();
+            IncrementExtraNonce(pblocktemplate.get(), pindexPrev, nExtraNonce, Params().GetConsensus());
         }
 
-        // Hash state
-        eh_HashState eh_state = EhInitialiseState(n, k);
+        // Calculate RandomX seed for this block height
+        uint64_t blockHeight = pindexPrev->nHeight + 1;
+        uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
+        uint256 seedHash;
 
-        // I = the block header minus nonce and solution.
+        if (seedHeight == 0) {
+            // Genesis epoch - use genesis seed
+            seedHash.SetNull();
+            *seedHash.begin() = 0x08;
+        } else {
+            // Get seed block hash from chain
+            LOCK(cs_main);
+            CBlockIndex* pindexSeed = chainActive[seedHeight];
+            if (!pindexSeed) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Could not find seed block");
+            }
+            seedHash = pindexSeed->GetBlockHash();
+        }
+
+        // Update RandomX cache for this seed
+        RandomX_SetMainSeedHash(seedHash.begin(), 32);
+
+        // I = the block header minus nonce and solution
         CEquihashInput I{*pblock};
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << I;
 
-        // H(I||...
-        eh_state.Update((unsigned char*)&ss[0], ss.size());
+        arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
 
         while (true) {
-            // Yes, there is a chance every nonce could fail to satisfy the -regtest
-            // target -- 1 in 2^(2^256). That ain't gonna happen
             pblock->nNonce = ArithToUint256(UintToArith256(pblock->nNonce) + 1);
 
-            // H(I||V||...
-            eh_HashState curr_state(eh_state);
-            curr_state.Update(pblock->nNonce.begin(), pblock->nNonce.size());
+            // Serialize header for RandomX hashing
+            CDataStream randomxInput(SER_NETWORK, PROTOCOL_VERSION);
+            randomxInput << I;
+            randomxInput << pblock->nNonce;
 
-            // (x_1, x_2, ...) = A(I, V, n, k)
-            std::function<bool(std::vector<unsigned char>)> validBlock =
-                    [&pblock](std::vector<unsigned char> soln) {
-                pblock->nSolution = soln;
-                solutionTargetChecks.increment();
-                return CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus());
-            };
-            bool found = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
+            // Calculate RandomX hash
+            uint256 randomxHash;
+            if (!RandomX_Hash_Block(randomxInput.data(), randomxInput.size(), randomxHash)) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "RandomX hash calculation failed");
+            }
+
             ehSolverRuns.increment();
-            if (found) {
-                goto endloop;
+
+            // Store in solution field
+            pblock->nSolution.resize(32);
+            memcpy(pblock->nSolution.data(), randomxHash.begin(), 32);
+
+            // Check if valid
+            solutionTargetChecks.increment();
+            if (UintToArith256(randomxHash) <= hashTarget) {
+                break;
             }
         }
-endloop:
         CValidationState state;
         if (!ProcessNewBlock(state, Params(), NULL, pblock, true, NULL))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
