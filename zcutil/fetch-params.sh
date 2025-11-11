@@ -6,16 +6,16 @@ set -eu
 uname_S=$(uname -s 2>/dev/null || echo not)
 
 if [ "$uname_S" = "Darwin" ]; then
-    PARAMS_DIR="$HOME/Library/Application Support/ZcashParams"
+    PARAMS_DIR="$HOME/Library/Application Support/JunoCashParams"
 else
-    PARAMS_DIR="$HOME/.zcash-params"
+    PARAMS_DIR="$HOME/.junocash-params"
 fi
 
 cat <<EOF
 
-This script is no longer needed for users of zcashd. Proving system
+This script is no longer needed for users of junocashd. Proving system
 parameters now only need to be downloaded in order to spend Sprout funds.
-Parameters for other pools are bundled with the zcashd binary or generated
+Parameters for other pools are bundled with the junocashd binary or generated
 when it is run, and do not need to be downloaded or stored separately.
 This script is deprecated and will be removed in a future release.
 

@@ -31,7 +31,7 @@ path = "src/rust/src/lib.rs"
 crate-type = ["staticlib"]
 
 [[bin]]
-name = "zcashd-wallet-tool"
+name = "junocashd-wallet-tool"
 path = "src/rust/bin/wallet_tool.rs"
 
 [dependencies]

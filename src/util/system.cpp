@@ -73,8 +73,8 @@
 
 using namespace std;
 
-const char * const BITCOIN_CONF_FILENAME = "zcash.conf";
-const char * const BITCOIN_PID_FILENAME = "zcashd.pid";
+const char * const BITCOIN_CONF_FILENAME = "junocashd.conf";
+const char * const BITCOIN_PID_FILENAME = "junocashd.pid";
 
 CCriticalSection cs_args;
 map<string, string> mapArgs;
@@ -226,13 +226,13 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 
 fs::path GetDefaultDataDir()
 {
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Zcash
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Zcash
-    // Mac: ~/Library/Application Support/Zcash
-    // Unix: ~/.zcash
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\JunoCash
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\JunoCash
+    // Mac: ~/Library/Application Support/JunoCash
+    // Unix: ~/.junocash
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Zcash";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "JunoCash";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -244,10 +244,10 @@ fs::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "Zcash";
+    return pathRet / "JunoCash";
 #else
     // Unix
-    return pathRet / ".zcash";
+    return pathRet / ".junocash";
 #endif
 #endif
 }
@@ -259,15 +259,15 @@ static CCriticalSection csPathCached;
 
 static fs::path ZC_GetDefaultBaseParamsDir()
 {
-    // Copied from GetDefaultDataDir and adapter for zcash params.
+    // Copied from GetDefaultDataDir and adapter for junocash params.
 
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\ZcashParams
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\ZcashParams
-    // Mac: ~/Library/Application Support/ZcashParams
-    // Unix: ~/.zcash-params
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\JunoCashParams
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\JunoCashParams
+    // Mac: ~/Library/Application Support/JunoCashParams
+    // Unix: ~/.junocash-params
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "ZcashParams";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "JunoCashParams";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -279,10 +279,10 @@ static fs::path ZC_GetDefaultBaseParamsDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "ZcashParams";
+    return pathRet / "JunoCashParams";
 #else
     // Unix
-    return pathRet / ".zcash-params";
+    return pathRet / ".junocash-params";
 #endif
 #endif
 }
