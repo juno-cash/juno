@@ -374,9 +374,25 @@ void ReadConfigFile(const std::string& confPath,
                     map<string, string>& mapSettingsRet,
                     map<string, vector<string> >& mapMultiSettingsRet)
 {
-    fs::ifstream streamConfig(GetConfigFile(confPath));
-    if (!streamConfig.good())
-        throw missing_zcash_conf();
+    fs::path configPath = GetConfigFile(confPath);
+    fs::ifstream streamConfig(configPath);
+    if (!streamConfig.good()) {
+        // Create a blank config file with helpful comment
+        fs::ofstream outConfig(configPath);
+        if (outConfig.good()) {
+            outConfig << "# Juno Cash configuration file\n";
+            outConfig << "# For available options, run: junocashd -help\n";
+            outConfig << "# Documentation: https://zcash.readthedocs.io/en/latest/rtd_pages/zcash_conf_guide.html\n";
+            outConfig << "\n";
+            outConfig.close();
+            // Re-open for reading
+            streamConfig.open(configPath);
+            if (!streamConfig.good())
+                throw missing_zcash_conf();
+        } else {
+            throw missing_zcash_conf();
+        }
+    }
 
     set<string> setOptions;
     setOptions.insert("*");
