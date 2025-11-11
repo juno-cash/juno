@@ -490,8 +490,9 @@ struct Params {
     int nFutureTimestampSoftForkHeight = 2;
 
     /** Proof of work parameters */
-    unsigned int nEquihashN = 0;
-    unsigned int nEquihashK = 0;
+    // Juno Cash: Legacy Equihash parameters removed (uses RandomX instead)
+    // unsigned int nEquihashN = 0;
+    // unsigned int nEquihashK = 0;
     uint256 powLimit;
     std::optional<uint32_t> nPowAllowMinDifficultyBlocksAfterHeight;
     bool fPowNoRetargeting;

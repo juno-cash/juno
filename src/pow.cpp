@@ -9,13 +9,16 @@
 #include "arith_uint256.h"
 #include "chain.h"
 #include "chainparams.h"
-#include "crypto/equihash.h"
+// Juno Cash: Legacy Equihash includes - kept for reference
+// #include "crypto/equihash.h"
+#include "crypto/randomx_wrapper.h"
 #include "primitives/block.h"
 #include "streams.h"
 #include "uint256.h"
 
 #include <librustzcash.h>
-#include <rust/equihash.h>
+// Juno Cash: Legacy Equihash includes - kept for reference
+// #include <rust/equihash.h>
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
@@ -104,6 +107,8 @@ unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
     return bnNew.GetCompact();
 }
 
+// Juno Cash: Legacy Equihash - kept for reference
+/*
 bool CheckEquihashSolution(const CBlockHeader *pblock, const Consensus::Params& params)
 {
     unsigned int n = params.nEquihashN;
@@ -120,6 +125,60 @@ bool CheckEquihashSolution(const CBlockHeader *pblock, const Consensus::Params& 
         {(const unsigned char*)ss.data(), ss.size()},
         {pblock->nNonce.begin(), pblock->nNonce.size()},
         {pblock->nSolution.data(), pblock->nSolution.size()});
+}
+*/
+
+bool CheckRandomXSolution(const CBlockHeader *pblock, const Consensus::Params& params,
+                         const CBlockIndex* pindexPrev)
+{
+    // Serialize header (minus solution) + nonce for RandomX input
+    CEquihashInput I{*pblock};
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << I;
+    ss << pblock->nNonce;
+
+    uint64_t blockHeight = 0;
+    uint256 seedHash;
+
+    if (pindexPrev != nullptr) {
+        blockHeight = pindexPrev->nHeight + 1;
+        uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
+
+        if (seedHeight == 0) {
+            // Genesis epoch - use genesis seed
+            seedHash.SetNull();
+            *seedHash.begin() = 0x08;
+        } else {
+            // Get seed block hash from chain
+            const CBlockIndex* pindexSeed = pindexPrev->GetAncestor(seedHeight);
+            if (!pindexSeed) return false;
+            seedHash = pindexSeed->GetBlockHash();
+        }
+
+        // Calculate RandomX hash with specific seed
+        uint256 hash;
+        if (!RandomX_Hash_WithSeed(seedHash.begin(), 32, ss.data(), ss.size(), hash.begin())) {
+            return false;
+        }
+
+        // Verify stored solution matches calculated hash
+        if (pblock->nSolution.size() != 32) return false;
+
+        uint256 storedHash;
+        memcpy(storedHash.begin(), pblock->nSolution.data(), 32);
+
+        return hash == storedHash;
+    } else {
+        // No pindexPrev - use current main seed (for mining/mempool)
+        uint256 hash;
+        if (!RandomX_Hash_Block(ss.data(), ss.size(), hash)) return false;
+
+        if (pblock->nSolution.size() != 32) return false;
+        uint256 storedHash;
+        memcpy(storedHash.begin(), pblock->nSolution.data(), 32);
+
+        return hash == storedHash;
+    }
 }
 
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)

@@ -24,7 +24,12 @@ unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
                                        int nextHeight);
 
 /** Check whether the Equihash solution in a block header is valid */
+// Juno Cash: Legacy Equihash - kept for reference
 bool CheckEquihashSolution(const CBlockHeader *pblock, const Consensus::Params&);
+
+/** Check whether the RandomX solution in a block header is valid */
+bool CheckRandomXSolution(const CBlockHeader *pblock, const Consensus::Params&,
+                         const CBlockIndex* pindexPrev = nullptr);
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&);

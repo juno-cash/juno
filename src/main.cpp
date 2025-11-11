@@ -4975,22 +4975,31 @@ bool CheckBlockHeader(
     const CBlockHeader& block,
     CValidationState& state,
     const CChainParams& chainparams,
-    bool fCheckPOW)
+    bool fCheckPOW,
+    const CBlockIndex* pindexPrev)
 {
     // Check block version
     if (block.nVersion < MIN_BLOCK_VERSION)
         return state.DoS(100, error("CheckBlockHeader(): block version too low"),
                          REJECT_INVALID, "version-too-low");
 
-    // Check Equihash solution is valid
-    if (fCheckPOW && !CheckEquihashSolution(&block, chainparams.GetConsensus()))
-        return state.DoS(100, error("CheckBlockHeader(): Equihash solution invalid"),
-                         REJECT_INVALID, "invalid-solution");
+    // Skip POW validation for genesis block (may have old Equihash solution)
+    if (fCheckPOW && block.GetHash() != chainparams.GetConsensus().hashGenesisBlock) {
+        // Check RandomX solution is valid
+        if (!CheckRandomXSolution(&block, chainparams.GetConsensus(), pindexPrev))
+            return state.DoS(100, error("CheckBlockHeader(): RandomX solution invalid"),
+                             REJECT_INVALID, "invalid-solution");
 
-    // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus()))
-        return state.DoS(50, error("CheckBlockHeader(): proof of work failed"),
-                         REJECT_INVALID, "high-hash");
+        // Check proof of work matches claimed amount
+        // For RandomX, the POW hash is the RandomX hash stored in nSolution
+        uint256 randomxHash;
+        if (block.nSolution.size() == 32) {
+            memcpy(randomxHash.begin(), block.nSolution.data(), 32);
+        }
+        if (!CheckProofOfWork(randomxHash, block.nBits, chainparams.GetConsensus()))
+            return state.DoS(50, error("CheckBlockHeader(): proof of work failed"),
+                             REJECT_INVALID, "high-hash");
+    }
 
     return true;
 }

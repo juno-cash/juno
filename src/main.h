@@ -556,7 +556,7 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
 
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     const CChainParams& chainparams,
-    bool fCheckPOW = true);
+    bool fCheckPOW = true, const CBlockIndex* pindexPrev = nullptr);
 
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 const CChainParams& chainparams,
