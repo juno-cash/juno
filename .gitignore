@@ -2,6 +2,7 @@
 *.deb
 *.exe
 src/bitcoin
+src/zcash-gtest
 src/junocashd
 src/junocashd-wallet-tool
 src/junocash-cli
