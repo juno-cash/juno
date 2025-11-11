@@ -87,7 +87,7 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         keyConstants.strNetworkID = "main";
-        strCurrencyUnits = "ZEC";
+        strCurrencyUnits = "JUNO";
         keyConstants.bip44CoinType = 8133; // Juno Cash coin type
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
@@ -236,7 +236,7 @@ class CTestNetParams : public CChainParams {
 public:
     CTestNetParams() {
         keyConstants.strNetworkID = "test";
-        strCurrencyUnits = "TAZ";
+        strCurrencyUnits = "TJUNO";
         keyConstants.bip44CoinType = 8134;
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
@@ -400,7 +400,7 @@ class CRegTestParams : public CChainParams {
 public:
     CRegTestParams() {
         keyConstants.strNetworkID = "regtest";
-        strCurrencyUnits = "REG";
+        strCurrencyUnits = "RJUNO";
         keyConstants.bip44CoinType = 8135;
         consensus.fCoinbaseMustBeShielded = false;
         consensus.nSubsidySlowStartInterval = 0;
