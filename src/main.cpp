@@ -920,6 +920,16 @@ bool ContextualCheckTransaction(
             REJECT_INVALID, "bad-txns-sapling-not-supported");
     }
 
+    // Juno Cash: Ban Orchard-to-transparent transactions (privacy protection)
+    // If transaction has Orchard actions and transparent outputs with negative value balance
+    // (funds leaving Orchard pool), reject it
+    if (orchard_bundle.GetNumActions() > 0 && !tx.vout.empty() && orchard_bundle.GetValueBalance() < 0) {
+        return state.DoS(
+            DOS_LEVEL_BLOCK,
+            error("ContextualCheckTransaction(): Orchard-to-transparent transactions not allowed"),
+            REJECT_INVALID, "bad-txns-orchard-to-transparent");
+    }
+
     // Rules that apply only to Sprout
     if (beforeOverwinter) {
         // Reject transactions which are intended for Overwinter and beyond
