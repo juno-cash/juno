@@ -930,6 +930,21 @@ bool ContextualCheckTransaction(
             REJECT_INVALID, "bad-txns-orchard-to-transparent");
     }
 
+    // Juno Cash: Ban transparent-to-transparent transactions (force shielding)
+    // Transparent outputs can only be sent to Orchard, not to other transparent addresses
+    // Exception: Coinbase transactions are allowed (miners receive transparent rewards)
+    if (!tx.IsCoinBase() && !tx.vin.empty() && !tx.vout.empty()) {
+        // Transaction has transparent inputs and outputs
+        // Check if funds are going into Orchard (positive value balance)
+        if (orchard_bundle.GetValueBalance() <= 0) {
+            // No funds going to Orchard, this is a pure transparent-to-transparent tx
+            return state.DoS(
+                DOS_LEVEL_BLOCK,
+                error("ContextualCheckTransaction(): Transparent-to-transparent transactions not allowed, must shield to Orchard"),
+                REJECT_INVALID, "bad-txns-transparent-to-transparent");
+        }
+    }
+
     // Rules that apply only to Sprout
     if (beforeOverwinter) {
         // Reject transactions which are intended for Overwinter and beyond
