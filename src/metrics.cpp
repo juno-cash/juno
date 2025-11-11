@@ -1,4 +1,5 @@
 // Copyright (c) 2016-2023 The Zcash developers
+// Copyright (c) 2025 Juno Cash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -7,12 +8,15 @@
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "main.h"
+#include "miner.h"
+#include "rpc/server.h"
 #include "timedata.h"
 #include "ui_interface.h"
 #include "util/system.h"
 #include "util/time.h"
 #include "util/moneystr.h"
 #include "util/strencodings.h"
+#include "wallet/wallet.h"
 
 #include <boost/range/irange.hpp>
 #include <boost/thread.hpp>
@@ -20,11 +24,16 @@
 
 #include <optional>
 #include <string>
+#include <iostream>
+#include <limits>
 #ifdef WIN32
 #include <io.h>
 #include <wincon.h>
+#include <conio.h>
 #else
 #include <sys/ioctl.h>
+#include <poll.h>
+#include <termios.h>
 #endif
 #include <unistd.h>
 
@@ -144,7 +153,7 @@ int EstimateNetHeight(const Consensus::Params& params, int currentHeadersHeight,
 
     int estimatedHeight = currentHeadersHeight + (now - currentHeadersTime) / params.PoWTargetSpacing(currentHeadersHeight);
 
-    int blossomActivationHeight = params.vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight;
+    int blossomActivationHeight = params.vUpgrades[Consensus::UPGRADE_NU6_1].nActivationHeight;
     if (currentHeadersHeight >= blossomActivationHeight || estimatedHeight <= blossomActivationHeight) {
         return ((estimatedHeight + 5) / 10) * 10;
     }
@@ -274,18 +283,18 @@ std::string DisplayHashRate(double value)
 {
     double coef = 1.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f Sol/s"), value);
+        return strprintf(_("%.3f H/s"), value);
     coef *= 1000.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f kSol/s"), value / coef);
+        return strprintf(_("%.3f kH/s"), value / coef);
     coef *= 1000.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f MSol/s"), value / coef);
+        return strprintf(_("%.3f MH/s"), value / coef);
     coef *= 1000.0;
     if (value < 1000.0 * coef)
-        return strprintf(_("%.3f GSol/s"), value / coef);
+        return strprintf(_("%.3f GH/s"), value / coef);
     coef *= 1000.0;
-    return strprintf(_("%.3f TSol/s"), value / coef);
+    return strprintf(_("%.3f TH/s"), value / coef);
 }
 
 std::optional<int64_t> SecondsLeftToNextEpoch(const Consensus::Params& params, int currentHeight)
@@ -335,94 +344,232 @@ MetricsStats loadStats()
     };
 }
 
+// ============================================================================
+// Beautiful UI Helper Functions
+// ============================================================================
+
+// Calculate visible length of string (excluding ANSI escape codes)
+// Counts UTF-8 characters, not bytes
+static size_t visibleLength(const std::string& str) {
+    size_t len = 0;
+    bool inEscape = false;
+    for (size_t i = 0; i < str.length(); ) {
+        unsigned char c = str[i];
+
+        if (c == '\e') {
+            inEscape = true;
+            i++;
+        } else if (inEscape && c == 'm') {
+            inEscape = false;
+            i++;
+        } else if (!inEscape) {
+            // Count this as one character and skip UTF-8 continuation bytes
+            len++;
+            // UTF-8: if byte starts with 11xxxxxx, count following 10xxxxxx bytes
+            if ((c & 0x80) == 0) {
+                i++; // ASCII (0xxxxxxx)
+            } else if ((c & 0xE0) == 0xC0) {
+                i += 2; // 2-byte UTF-8 (110xxxxx 10xxxxxx)
+            } else if ((c & 0xF0) == 0xE0) {
+                i += 3; // 3-byte UTF-8 (1110xxxx 10xxxxxx 10xxxxxx)
+            } else if ((c & 0xF8) == 0xF0) {
+                i += 4; // 4-byte UTF-8 (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
+            } else {
+                i++; // Invalid UTF-8, just skip
+            }
+        } else {
+            i++;
+        }
+    }
+    return len;
+}
+
+// Draw a horizontal line with optional title
+static void drawLine(const std::string& title = "", const std::string& left = "├", const std::string& right = "┤", const std::string& fill = "─", int width = 72) {
+    std::cout << left;
+    if (!title.empty()) {
+        int titleLen = title.length() + 2; // +2 for spaces
+        int leftPad = (width - titleLen) / 2;
+        int rightPad = width - titleLen - leftPad;
+        for (int i = 0; i < leftPad; i++) std::cout << fill;
+        std::cout << " \e[1;37m" << title << "\e[0m ";
+        for (int i = 0; i < rightPad; i++) std::cout << fill;
+    } else {
+        for (int i = 0; i < width; i++) std::cout << fill;
+    }
+    std::cout << right << std::endl;
+}
+
+// Draw top border of box
+static void drawBoxTop(const std::string& title = "", int width = 72) {
+    drawLine(title, "┌", "┐", "─", width);
+}
+
+// Draw bottom border of box
+static void drawBoxBottom(int width = 72) {
+    drawLine("", "└", "┘", "─", width);
+}
+
+// Draw a data row inside a box with label and value
+static void drawRow(const std::string& label, const std::string& value, int width = 72) {
+    int labelLen = visibleLength(label);
+    int valueLen = visibleLength(value);
+    int padding = width - labelLen - valueLen - 2; // -2 for the two spaces (after | and before |)
+
+    std::cout << "│ \e[1;36m" << label << "\e[0m";
+    for (int i = 0; i < padding; i++) std::cout << " ";
+    std::cout << "\e[1;33m" << value << "\e[0m │" << std::endl;
+}
+
+// Draw a centered text line in a box
+static void drawCentered(const std::string& text, const std::string& color = "", int width = 72) {
+    int textLen = visibleLength(text);
+    int padding = (width - textLen) / 2;
+    int rightPad = width - textLen - padding;
+
+    std::cout << "│";
+    for (int i = 0; i < padding; i++) std::cout << " ";
+    if (!color.empty()) std::cout << color;
+    std::cout << text;
+    if (!color.empty()) std::cout << "\e[0m";
+    for (int i = 0; i < rightPad; i++) std::cout << " ";
+    std::cout << "│" << std::endl;
+}
+
+// Draw a progress bar
+static void drawProgressBar(int percent, int width = 68) {
+    int filled = (percent * width) / 100;
+    std::cout << "│ \e[1;32m";
+    for (int i = 0; i < filled; i++) std::cout << "█";
+    std::cout << "\e[0;32m";
+    for (int i = filled; i < width; i++) std::cout << "░";
+    std::cout << "\e[0m │" << std::endl;
+}
+
 int printStats(MetricsStats stats, bool isScreen, bool mining)
 {
-    // Number of lines that are always displayed
-    int lines = 5;
-
+    int lines = 0;
     const Consensus::Params& params = Params().GetConsensus();
     auto localsolps = GetLocalSolPS();
 
+    // Network Status Box
+    drawBoxTop("NETWORK STATUS");
+    lines++;
+
+    // Syncing or synced status
     if (IsInitialBlockDownload(Params().GetConsensus())) {
         if (fReindex) {
             int downloadPercent = nSizeReindexed * 100 / nFullSizeToReindex;
-            std::cout << "      " << _("Reindexing blocks") << " | "
-                << DisplaySize(nSizeReindexed) << " / " << DisplaySize(nFullSizeToReindex)
-                << " (" << downloadPercent << "%, " << stats.height << " " << _("blocks") << ")" << std::endl;
-        } else {
-            int nHeaders = stats.currentHeadersHeight;
-            if (nHeaders < 0)
-                nHeaders = 0;
-            int netheight = stats.currentHeadersHeight == -1 || stats.currentHeadersTime == 0 ?
-                0 : EstimateNetHeight(params, stats.currentHeadersHeight, stats.currentHeadersTime);
-            if (netheight < nHeaders)
-                netheight = nHeaders;
-            if (netheight <= 0)
-                netheight = 1;
-            int downloadPercent = stats.height * 100 / netheight;
-            std::cout << "     " << _("Downloading blocks") << " | "
-                << stats.height << " (" << nHeaders << " " << _("headers") << ") / ~" << netheight
-                << " (" << downloadPercent << "%)" << std::endl;
+            drawRow("Status", strprintf("Reindexing (%d%%)", downloadPercent));
+            lines++;
+            drawRow("Progress", strprintf("%s / %s",
+                DisplaySize(nSizeReindexed), DisplaySize(nFullSizeToReindex)));
+            lines++;
+            drawRow("Blocks", strprintf("%d", stats.height));
+            lines++;
 
             if (isScreen) {
-                // Draw 50-character progress bar, which will fit into a 79-character line.
-                int blockChars = downloadPercent / 2;
-                int headerChars = (nHeaders * 50) / netheight;
-                // Start with background colour reversed for "full" bar.
-                std::cout << "                        | [[7m";
-                for (auto i : boost::irange(0, 50)) {
-                    if (i == headerChars) {
-                        // Switch to normal background colour for "empty" bar.
-                        std::cout << "[0m";
-                    } else if (i == blockChars) {
-                        // Switch to distinct colour for "headers" bar.
-                        std::cout << "[0;43m";
-                    }
-                    std::cout << " ";
-                }
-                // Ensure that colour is reset after the progress bar is printed.
-                std::cout << "[0m]" << std::endl;
+                drawProgressBar(downloadPercent);
+                lines++;
+            }
+        } else {
+            int nHeaders = stats.currentHeadersHeight < 0 ? 0 : stats.currentHeadersHeight;
+            int netheight = stats.currentHeadersHeight == -1 || stats.currentHeadersTime == 0 ?
+                0 : EstimateNetHeight(params, stats.currentHeadersHeight, stats.currentHeadersTime);
+            if (netheight < nHeaders) netheight = nHeaders;
+            if (netheight <= 0) netheight = 1;
+            int downloadPercent = stats.height * 100 / netheight;
+
+            drawRow("Status", strprintf("\e[1;33mSYNCING\e[0m (%d%%)", downloadPercent));
+            lines++;
+            drawRow("Block Height", strprintf("%d / %d", stats.height, netheight));
+            lines++;
+
+            // Network Difficulty
+            double difficulty = GetNetworkDifficulty(chainActive.Tip());
+            drawRow("Network Difficulty", strprintf("%.6f", difficulty));
+            lines++;
+
+            if (isScreen) {
+                drawProgressBar(downloadPercent);
                 lines++;
             }
         }
     } else {
-        std::cout << "           " << _("Block height") << " | " << stats.height << std::endl;
+        drawRow("Status", "\e[1;32m● SYNCHRONIZED\e[0m");
+        lines++;
+        drawRow("Block Height", strprintf("%d", stats.height));
+        lines++;
     }
 
+    // Network Difficulty
+    double difficulty = GetNetworkDifficulty(chainActive.Tip());
+    drawRow("Network Difficulty", strprintf("%.6f", difficulty));
+    lines++;
+
+    // Network info
     auto secondsLeft = SecondsLeftToNextEpoch(params, stats.height);
-    std::string strUpgradeTime;
     if (secondsLeft) {
         auto nextHeight = NextActivationHeight(stats.height, params).value();
         auto nextBranch = NextEpoch(stats.height, params).value();
-        strUpgradeTime = strprintf(_("%s at block height %d, in around %s"),
-                                   NetworkUpgradeInfo[nextBranch].strName, nextHeight, DisplayDuration(secondsLeft.value(), DurationFormat::REDUCED));
+        drawRow("Next Upgrade", strprintf("%s at %d (~%s)",
+            NetworkUpgradeInfo[nextBranch].strName, nextHeight,
+            DisplayDuration(secondsLeft.value(), DurationFormat::REDUCED)));
+    } else {
+        drawRow("Next Upgrade", "None scheduled");
     }
-    else {
-        strUpgradeTime = "Unknown";
-    }
-    std::cout << "           " << _("Next upgrade") << " | " << strUpgradeTime << std::endl;
-    std::cout << "            " << _("Connections") << " | " << stats.connections << std::endl;
-    std::cout << "  " << _("Network solution rate") << " | " << DisplayHashRate(stats.netsolps) << std::endl;
+    lines++;
+
+    drawRow("Connections", strprintf("%d", stats.connections));
+    lines++;
+    drawRow("Network Hash", DisplayHashRate(stats.netsolps));
+    lines++;
+
     if (mining && miningTimer.running()) {
-        std::cout << "    " << _("Local solution rate") << " | " << DisplayHashRate(localsolps) << std::endl;
+        drawRow("Your Hash Rate", DisplayHashRate(localsolps));
         lines++;
     }
+
+    drawBoxBottom();
+    lines++;
     std::cout << std::endl;
+    lines++;
 
     return lines;
 }
 
+
+// Forward declarations for donation helper functions
+static int getCurrentDonationPercentage();
+static std::string getCurrentDonationAddress();
+
 int printMiningStatus(bool mining)
 {
 #ifdef ENABLE_MINING
-    // Number of lines that are always displayed
-    int lines = 1;
+    int lines = 0;
+
+    // Mining Status Box
+    drawBoxTop("MINING");
+    lines++;
 
     if (mining) {
         auto nThreads = miningTimer.threadCount();
         if (nThreads > 0) {
-            std::cout << strprintf(_("You are mining with the %s solver on %d threads."),
-                                   GetArg("-equihashsolver", "default"), nThreads) << std::endl;
+            drawRow("Status", strprintf("\e[1;32m● ACTIVE\e[0m - %d threads", nThreads));
+            lines++;
+
+            // Show block reward
+            int nHeight = chainActive.Height() + 1; // Next block to be mined
+            CAmount blockReward = Params().GetConsensus().GetBlockSubsidy(nHeight);
+            drawRow("Block Reward", FormatMoney(blockReward));
+            lines++;
+
+            // Show blocks mined
+            int blocksMined = minedBlocks.get();
+            if (blocksMined > 0) {
+                drawRow("Blocks Mined", strprintf("%d", blocksMined));
+                lines++;
+            }
         } else {
             bool fvNodesEmpty;
             {
@@ -430,20 +577,59 @@ int printMiningStatus(bool mining)
                 fvNodesEmpty = vNodes.empty();
             }
             if (fvNodesEmpty) {
-                std::cout << _("Mining is paused while waiting for connections.") << std::endl;
+                drawRow("Status", "\e[1;33m○ PAUSED\e[0m - Waiting for connections");
             } else if (IsInitialBlockDownload(Params().GetConsensus())) {
-                std::cout << _("Mining is paused while downloading blocks.") << std::endl;
+                drawRow("Status", "\e[1;33m○ PAUSED\e[0m - Downloading blocks");
             } else {
-                std::cout << _("Mining is paused (a JoinSplit may be in progress).") << std::endl;
+                drawRow("Status", "\e[1;33m○ PAUSED\e[0m - Processing");
             }
+            lines++;
         }
+
+        // Show donation status if active
+        int donationPct = getCurrentDonationPercentage();
+        if (donationPct > 0) {
+            std::string donationAddr = getCurrentDonationAddress();
+            std::string shortAddr = donationAddr.substr(0, 10) + "..." + donationAddr.substr(donationAddr.length() - 6);
+            drawRow("Donations", strprintf("\e[1;35m%d%%\e[0m → %s", donationPct, shortAddr.c_str()));
+            lines++;
+        }
+    } else {
+        drawRow("Status", "\e[1;31m○ INACTIVE\e[0m");
         lines++;
-    } else if (Params().NetworkIDString() != "main") {
-        std::cout << _("You are currently not mining.") << std::endl;
-        std::cout << _("To enable mining, add 'gen=1' to your zcash.conf and restart.") << std::endl;
-        lines += 2;
     }
+
+    drawBoxBottom();
+    lines++;
     std::cout << std::endl;
+    lines++;
+
+    // Controls Box
+    drawBoxTop("CONTROLS");
+    lines++;
+
+    if (mining) {
+        // Get current thread count
+        int nThreads = GetArg("-genproclimit", 1);
+
+        std::string controls = strprintf("\e[1;37m[M]\e[0m Mining: \e[1;32mON\e[0m  \e[1;37m[T]\e[0m Threads: %d", nThreads);
+
+        int donationPct = getCurrentDonationPercentage();
+        if (donationPct > 0) {
+            // Donations are ON, show current state and controls
+            controls += strprintf("  \e[1;37m[D]\e[0m Donations: \e[1;35mON (%d%%)\e[0m  \e[1;37m[P]\e[0m Change %%", donationPct);
+        } else {
+            // Donations are OFF, show current state
+            controls += "  \e[1;37m[D]\e[0m Donations: \e[1;31mOFF\e[0m";
+        }
+        drawCentered(controls);
+    } else {
+        drawCentered("\e[1;37m[M]\e[0m Mining: \e[1;31mOFF\e[0m");
+    }
+    lines++;
+
+    drawBoxBottom();
+    lines++;
 
     return lines;
 #else // ENABLE_MINING
@@ -451,29 +637,21 @@ int printMiningStatus(bool mining)
 #endif // !ENABLE_MINING
 }
 
+
 int printMetrics(size_t cols, bool mining)
 {
     // Number of lines that are always displayed
-    int lines = 3;
+    int lines = 2;
 
     // Calculate and display uptime
     std::string duration = DisplayDuration(GetUptime(), DurationFormat::FULL);
 
-    std::string strDuration = strprintf(_("Since starting this node %s ago:"), duration);
+    std::string strDuration = strprintf(_("Uptime: %s"), duration);
     std::cout << strDuration << std::endl;
     lines += (strDuration.size() / cols);
 
-    int validatedCount = transactionsValidated.get();
-    if (validatedCount > 1) {
-      std::cout << "- " << strprintf(_("You have validated %d transactions!"), validatedCount) << std::endl;
-    } else if (validatedCount == 1) {
-      std::cout << "- " << _("You have validated a transaction!") << std::endl;
-    } else {
-      std::cout << "- " << _("You have validated no transactions.") << std::endl;
-    }
-
     if (mining && loaded) {
-        std::cout << "- " << strprintf(_("You have completed %d Equihash solver runs."), ehSolverRuns.get()) << std::endl;
+        std::cout << "- " << strprintf(_("You have completed %d RandomX hashes."), ehSolverRuns.get()) << std::endl;
         lines++;
 
         int mined = 0;
@@ -483,25 +661,13 @@ int printMetrics(size_t cols, bool mining)
         {
             LOCK2(cs_main, cs_metrics);
             boost::strict_lock_ptr<std::list<uint256>> u = trackedBlocks.synchronize();
-            const Consensus::Params& consensusParams = Params().GetConsensus();
-            auto tipHeight = chainActive.Height();
 
-            // Update orphans and calculate subsidies
+            // Update orphaned block count
             std::list<uint256>::iterator it = u->begin();
             while (it != u->end()) {
                 auto hash = *it;
                 if (mapBlockIndex.count(hash) > 0 &&
                         chainActive.Contains(mapBlockIndex[hash])) {
-                    int height = mapBlockIndex[hash]->nHeight;
-                    CAmount subsidy = consensusParams.GetBlockSubsidy(height);
-                    if ((height > 0) && (height <= consensusParams.GetLastFoundersRewardBlockHeight(height))) {
-                        subsidy -= subsidy/5;
-                    }
-                    if (std::max(0, COINBASE_MATURITY - (tipHeight - height)) > 0) {
-                        immature += subsidy;
-                    } else {
-                        mature += subsidy;
-                    }
                     it++;
                 } else {
                     it = u->erase(it);
@@ -510,6 +676,12 @@ int printMetrics(size_t cols, bool mining)
 
             mined = minedBlocks.get();
             orphaned = mined - u->size();
+        }
+
+        // Get balance from wallet API
+        if (pwalletMain) {
+            immature = pwalletMain->GetImmatureBalance(std::nullopt);
+            mature = pwalletMain->GetBalance(std::nullopt);
         }
 
         if (mined > 0) {
@@ -567,7 +739,7 @@ int printInitMessage()
     }
 
     std::string msg = *initMessage;
-    std::cout << _("Init message:") << " " << msg << std::endl;
+    std::cout << _("Node is starting up:") << " " << msg << std::endl;
     std::cout << std::endl;
 
     if (msg == _("Done loading")) {
@@ -599,6 +771,209 @@ bool enableVTMode()
 }
 #endif
 
+// Helper function to check for keyboard input without blocking
+static int checkKeyPress()
+{
+#ifdef WIN32
+    if (_kbhit()) {
+        return _getch();
+    }
+    return 0;
+#else
+    struct pollfd fds;
+    fds.fd = STDIN_FILENO;
+    fds.events = POLLIN;
+
+    int ret = poll(&fds, 1, 0);  // 0 timeout = non-blocking
+    if (ret > 0 && (fds.revents & POLLIN)) {
+        char c;
+        if (read(STDIN_FILENO, &c, 1) == 1) {
+            return c;
+        }
+    }
+    return 0;
+#endif
+}
+
+// Terminal mode management for input prompts
+#ifndef WIN32
+static struct termios orig_termios;
+static bool termios_saved = false;
+
+static void disableRawMode()
+{
+    if (termios_saved) {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+    }
+}
+
+static void enableRawMode()
+{
+    if (!termios_saved) {
+        tcgetattr(STDIN_FILENO, &orig_termios);
+        termios_saved = true;
+        atexit(disableRawMode);
+    }
+
+    struct termios raw = orig_termios;
+    raw.c_lflag &= ~(ICANON | ECHO);  // Disable canonical mode and echo
+    raw.c_cc[VMIN] = 0;   // Non-blocking read
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
+static void enableCanonicalMode()
+{
+    if (termios_saved) {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+    }
+}
+#endif
+
+// Get current donation percentage
+static int getCurrentDonationPercentage()
+{
+    return GetArg("-donationpercentage", 0);
+}
+
+// Get current donation address
+static std::string getCurrentDonationAddress()
+{
+    // JunoCash: No default donation address - user must provide explicit Orchard address
+    return GetArg("-donationaddress", "");
+}
+
+// Update donation percentage
+static void updateDonationPercentage(int percentage)
+{
+    if (percentage < 0 || percentage > 100) {
+        return;  // Invalid range
+    }
+
+    mapArgs["-donationpercentage"] = itostr(percentage);
+
+    if (percentage > 0) {
+        std::string devAddress = getCurrentDonationAddress();
+        LogPrintf("User set donation to %d%% (address: %s)\n", percentage, devAddress);
+    } else {
+        LogPrintf("User disabled donations\n");
+    }
+}
+
+// Toggle donation on/off
+static void toggleDonation()
+{
+    int current = getCurrentDonationPercentage();
+    if (current > 0) {
+        // Turn off
+        updateDonationPercentage(0);
+    } else {
+        // Turn on with default 5%
+        updateDonationPercentage(5);
+    }
+}
+
+// Prompt user for donation percentage
+static void promptForPercentage()
+{
+#ifndef WIN32
+    enableCanonicalMode();
+#endif
+
+    // Clear the input area and show prompt
+    std::cout << "\n\e[K";  // Clear line
+    std::cout << "Enter donation percentage (0-100): " << std::flush;
+
+    std::string input;
+    std::getline(std::cin, input);
+
+    try {
+        int percentage = std::stoi(input);
+        if (percentage >= 0 && percentage <= 100) {
+            updateDonationPercentage(percentage);
+            if (percentage == 0) {
+                std::cout << "Donations disabled." << std::endl;
+            } else {
+                std::cout << "Donation set to " << percentage << "%" << std::endl;
+            }
+        } else {
+            std::cout << "Invalid percentage. Must be between 0 and 100." << std::endl;
+        }
+    } catch (...) {
+        std::cout << "Invalid input. Please enter a number." << std::endl;
+    }
+
+    MilliSleep(1500);  // Give user time to see the message
+
+#ifndef WIN32
+    enableRawMode();
+#endif
+}
+
+// Toggle mining on/off
+static void toggleMining()
+{
+    bool currentlyMining = GetBoolArg("-gen", false);
+    mapArgs["-gen"] = currentlyMining ? "0" : "1";
+
+    int nThreads = GetArg("-genproclimit", 1);
+    GenerateBitcoins(!currentlyMining, nThreads, Params());
+
+    if (!currentlyMining) {
+        LogPrintf("User enabled mining with %d threads\n", nThreads);
+    } else {
+        LogPrintf("User disabled mining\n");
+    }
+}
+
+// Prompt user for number of mining threads
+static void promptForThreads()
+{
+#ifndef WIN32
+    enableCanonicalMode();
+#endif
+
+    // Clear the input area and show prompt
+    std::cout << "\n\e[K";  // Clear line
+    std::cout << "Enter number of mining threads (1-" << boost::thread::hardware_concurrency() << ", or -1 for all cores): " << std::flush;
+
+    std::string input;
+    std::getline(std::cin, input);
+
+    try {
+        int threads = std::stoi(input);
+        int maxThreads = boost::thread::hardware_concurrency();
+
+        if (threads == -1) {
+            threads = maxThreads;
+        }
+
+        if (threads >= 1 && threads <= maxThreads) {
+            mapArgs["-genproclimit"] = itostr(threads);
+
+            // Restart mining with new thread count if currently mining
+            bool currentlyMining = GetBoolArg("-gen", false);
+            if (currentlyMining) {
+                GenerateBitcoins(true, threads, Params());
+                LogPrintf("User set mining threads to %d (mining restarted)\n", threads);
+            } else {
+                LogPrintf("User set mining threads to %d (will apply when mining starts)\n", threads);
+            }
+            std::cout << "Mining threads set to " << threads << std::endl;
+        } else {
+            std::cout << "Invalid thread count. Must be between 1 and " << maxThreads << " (or -1 for all cores)." << std::endl;
+        }
+    } catch (...) {
+        std::cout << "Invalid input. Please enter a number." << std::endl;
+    }
+
+    MilliSleep(1500);  // Give user time to see the message
+
+#ifndef WIN32
+    enableRawMode();
+#endif
+}
+
 void ThreadShowMetricsScreen()
 {
     // Determine whether we should render a persistent UI or rolling metrics
@@ -609,27 +984,28 @@ void ThreadShowMetricsScreen()
     if (isScreen) {
 #ifdef WIN32
         enableVTMode();
+#else
+        // Enable raw mode for non-blocking keyboard input
+        if (isTTY) {
+            enableRawMode();
+        }
 #endif
 
         // Clear screen
         std::cout << "\e[2J";
 
-        // Print art
-        std::cout << METRICS_ART << std::endl;
-        std::cout << std::endl;
-
-        // Thank you text
-        std::cout << strprintf(_("Thank you for running a %s zcashd %s node!"), WhichNetwork(), FormatFullVersion()) << std::endl;
-        std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
-
-        // Privacy notice text
-        std::cout << PrivacyInfo();
+        // Beautiful Header
+        drawBoxTop("");
+        drawCentered("Juno Cash", "\e[1;33m");
+        drawCentered("Privacy Money for All", "\e[1;36m");
+        drawCentered(FormatFullVersion() + " - " + WhichNetwork() + " - RandomX", "\e[0;37m");
+        drawBoxBottom();
         std::cout << std::endl;
     }
 
     while (true) {
         // Number of lines that are always displayed
-        int lines = 1;
+        int lines = 0;
         int cols = 80;
 
         // Get current window size
@@ -656,7 +1032,7 @@ void ThreadShowMetricsScreen()
 
         if (isScreen) {
             // Erase below current position
-            std::cout << "\e[J";
+            std::cout << "\e[J" << std::flush;
         }
 
         // Miner status
@@ -678,11 +1054,12 @@ void ThreadShowMetricsScreen()
             // Explain how to exit
             std::cout << "[";
 #ifdef WIN32
-            std::cout << _("'zcash-cli.exe stop' to exit");
+            std::cout << _("'junocash-cli.exe stop' to exit");
 #else
             std::cout << _("Press Ctrl+C to exit");
 #endif
             std::cout << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
+            lines++; // Count the exit message line
         } else {
             // Print delineator
             std::cout << "----------------------------------------" << std::endl;
@@ -691,12 +1068,41 @@ void ThreadShowMetricsScreen()
         *nNextRefresh = GetTime() + nRefresh;
         while (GetTime() < *nNextRefresh) {
             boost::this_thread::interruption_point();
+
+            // Check for keyboard input
+            if (isScreen && isTTY) {
+                int key = checkKeyPress();
+                if (key == 'M' || key == 'm') {
+                    toggleMining();
+                    break;  // Force screen refresh
+                } else if (key == 'T' || key == 't') {
+                    // Only allow changing threads if mining or on non-main network
+                    if (mining || Params().NetworkIDString() != "main") {
+                        promptForThreads();
+                        break;  // Force screen refresh
+                    }
+                } else if (mining) {
+                    // Donation controls only available when mining
+                    if (key == 'D' || key == 'd') {
+                        toggleDonation();
+                        break;  // Force screen refresh
+                    } else if (key == 'P' || key == 'p') {
+                        // Only allow changing percentage if donations are active
+                        int currentPct = getCurrentDonationPercentage();
+                        if (currentPct > 0) {
+                            promptForPercentage();
+                            break;  // Force screen refresh
+                        }
+                    }
+                }
+            }
+
             MilliSleep(200);
         }
 
         if (isScreen) {
             // Return to the top of the updating section
-            std::cout << "\e[" << lines << "A";
+            std::cout << "\e[" << lines << "A" << std::flush;
         }
     }
 }
