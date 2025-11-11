@@ -67,6 +67,7 @@
 
 #define db .byte
 
+#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
 DECL(randomx_prefetch_scratchpad):
 	mov rdx, rax
 	and eax, RANDOMX_SCRATCHPAD_MASK
@@ -228,3 +229,4 @@ DECL(randomx_reciprocal_fast):
 	mov rcx, rdi
 #endif
 	#include "asm/randomx_reciprocal.inc"
+#endif /* __x86_64__ */

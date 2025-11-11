@@ -2236,10 +2236,9 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
         return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
     }
 
-    // Check the header
-    if (!(CheckEquihashSolution(&block, consensusParams) &&
-          CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)))
-        return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+    // Juno Cash: Blocks on disk were already validated when stored
+    // RandomX validation requires context (pindexPrev) which we don't have here
+    // Legacy Equihash check removed - blocks on disk are assumed valid
 
     return true;
 }

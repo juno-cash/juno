@@ -152,8 +152,11 @@ double benchmark_verify_joinsplit(const JSDescription &joinsplit)
 }
 
 #ifdef ENABLE_MINING
+// Juno Cash: Legacy Equihash benchmark (disabled)
 double benchmark_solve_equihash()
 {
+    return 0.0;
+    /*
     CBlock pblock;
     CEquihashInput I{pblock};
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
@@ -174,6 +177,7 @@ double benchmark_solve_equihash()
     EhOptimisedSolveUncancellable(n, k, eh_state,
                                   [](std::vector<unsigned char> soln) { return false; });
     return timer_stop(tv_start);
+    */
 }
 
 std::vector<double> benchmark_solve_equihash_threaded(int nThreads)
@@ -198,8 +202,11 @@ std::vector<double> benchmark_solve_equihash_threaded(int nThreads)
 }
 #endif // ENABLE_MINING
 
+// Juno Cash: Legacy Equihash benchmark (disabled)
 double benchmark_verify_equihash()
 {
+    return 0.0;
+    /*
     CChainParams params = Params(CBaseChainParams::MAIN);
     CBlock genesis = params.GenesisBlock();
     CBlockHeader genesis_header = genesis.GetBlockHeader();
@@ -207,6 +214,7 @@ double benchmark_verify_equihash()
     timer_start(tv_start);
     CheckEquihashSolution(&genesis_header, params.GetConsensus());
     return timer_stop(tv_start);
+    */
 }
 
 double benchmark_large_tx(size_t nInputs)

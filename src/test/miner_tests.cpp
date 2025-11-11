@@ -12,6 +12,7 @@
 #include "uint256.h"
 #include "util/system.h"
 #include "crypto/equihash.h"
+#include "crypto/randomx_wrapper.h"
 #include "pow/tromp/equi.h"
 #include "test/test_bitcoin.h"
 #include "zip317.h"
@@ -247,44 +248,56 @@ class MinerAddressScript : public CReserveScript
 // This is only useful if the test changes to require more blocks, but we keep it
 // compiling to avoid bitrot.
 void MineBlockForTest(const CChainParams& chainparams, CBlock* pblock) {
+    // Juno Cash: RandomX-based mining for tests
+    RandomX_Init();
+
+    // Get seed hash for this block height (assuming chainActive is available in test context)
+    uint64_t blockHeight = chainActive.Height() + 1;
+    uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
+    uint256 seedHash;
+
+    if (seedHeight == 0) {
+        seedHash.SetNull();
+        *seedHash.begin() = 0x08;
+    } else if (seedHeight <= (uint64_t)chainActive.Height()) {
+        CBlockIndex* pindexSeed = chainActive[seedHeight];
+        seedHash = pindexSeed->GetBlockHash();
+    } else {
+        seedHash.SetNull();
+        *seedHash.begin() = 0x08;
+    }
+
+    RandomX_SetMainSeedHash(seedHash.begin(), 32);
+
     arith_uint256 try_nonce(0);
-    unsigned int n = chainparams.GetConsensus().nEquihashN;
-    unsigned int k = chainparams.GetConsensus().nEquihashK;
-
-    // Hash state
-    eh_HashState eh_state = EhInitialiseState(n, k);
-
-    // I = the block header minus nonce and solution.
-    CEquihashInput I{*pblock};
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << I;
-
-    // H(I||...
-    eh_state.Update((unsigned char*)&ss[0], ss.size());
+    arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
 
     while (true) {
         pblock->nNonce = ArithToUint256(try_nonce);
 
-        // H(I||V||...
-        eh_HashState curr_state(eh_state);
-        curr_state.Update(pblock->nNonce.begin(), pblock->nNonce.size());
+        // Serialize header + nonce
+        CEquihashInput I{*pblock};
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << I;
+        ss << pblock->nNonce;
 
-        std::function<void()> incrementRuns = [&]() {};
-        std::function<bool(size_t, const std::vector<uint32_t>&)> checkSolution = [&](size_t s, const std::vector<uint32_t>& index_vector) {
-            auto soln = GetMinimalFromIndices(index_vector, DIGITBITS);
-            pblock->nSolution = soln;
-            if (!equihash::is_valid(
-                n, k,
-                {(const unsigned char*)ss.data(), ss.size()},
-                {pblock->nNonce.begin(), pblock->nNonce.size()},
-                {soln.data(), soln.size()})) {
-                return false;
-            }
-            CValidationState state;
-            return ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL) && state.IsValid();
-        };
-        if (equihash_solve(curr_state.inner, incrementRuns, checkSolution))
+        // Calculate RandomX hash
+        uint256 hash;
+        if (!RandomX_Hash_Block(ss.data(), ss.size(), hash)) {
             break;
+        }
+
+        // Store hash in solution
+        pblock->nSolution.resize(32);
+        memcpy(pblock->nSolution.data(), hash.begin(), 32);
+
+        // Check if it meets difficulty target
+        if (UintToArith256(hash) <= hashTarget) {
+            CValidationState state;
+            if (ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL) && state.IsValid()) {
+                break;
+            }
+        }
 
         try_nonce += 1;
     }

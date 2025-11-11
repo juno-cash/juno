@@ -107,6 +107,7 @@
 # v31 -> scale mask   = 0x81f000000000000081f0000000000000
 
 	.balign 4
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
 DECL(randomx_program_aarch64):
 	# Save callee-saved registers
 	sub	sp, sp, 192
@@ -587,3 +588,4 @@ DECL(randomx_calc_dataset_item_aarch64_store_result):
 	ret
 
 DECL(randomx_calc_dataset_item_aarch64_end):
+#endif /* __aarch64__ */

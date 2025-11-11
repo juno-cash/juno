@@ -12,6 +12,7 @@
 #include "consensus/validation.h"
 #ifdef ENABLE_MINING
 #include "crypto/equihash.h"
+#include "crypto/randomx_wrapper.h"
 #endif
 #include "crypto/sha256.h"
 #include "fs.h"
@@ -160,8 +161,7 @@ CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
     const CChainParams& chainparams = Params();
-    unsigned int n = chainparams.GetConsensus().nEquihashN;
-    unsigned int k = chainparams.GetConsensus().nEquihashK;
+    RandomX_Init();
 
     boost::shared_ptr<CReserveScript> mAddr(new CReserveScript());
     mAddr->reserveScript = scriptPubKey;
@@ -177,33 +177,50 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     unsigned int extraNonce = 0;
     IncrementExtraNonce(pblocktemplate, chainActive.Tip(), extraNonce, chainparams.GetConsensus());
 
-    // Hash state
-    eh_HashState eh_state = EhInitialiseState(n, k);
+    // Juno Cash: RandomX-based mining for tests
+    uint64_t blockHeight = chainActive.Height() + 1;
+    uint64_t seedHeight = RandomX_SeedHeight(blockHeight);
+    uint256 seedHash;
 
-    // I = the block header minus nonce and solution.
-    CEquihashInput I{block};
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << I;
+    if (seedHeight == 0) {
+        seedHash.SetNull();
+        *seedHash.begin() = 0x08;
+    } else if (seedHeight <= (uint64_t)chainActive.Height()) {
+        CBlockIndex* pindexSeed = chainActive[seedHeight];
+        seedHash = pindexSeed->GetBlockHash();
+    } else {
+        seedHash.SetNull();
+        *seedHash.begin() = 0x08;
+    }
 
-    // H(I||...
-    eh_state.Update((unsigned char*)&ss[0], ss.size());
+    RandomX_SetMainSeedHash(seedHash.begin(), 32);
 
-    bool found = false;
-    do {
+    arith_uint256 hashTarget = arith_uint256().SetCompact(block.nBits);
+
+    while (true) {
         block.nNonce = ArithToUint256(UintToArith256(block.nNonce) + 1);
 
-        // H(I||V||...
-        eh_HashState curr_state(eh_state);
-        curr_state.Update(block.nNonce.begin(), block.nNonce.size());
+        // Serialize header + nonce
+        CEquihashInput I{block};
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << I;
+        ss << block.nNonce;
 
-        // (x_1, x_2, ...) = A(I, V, n, k)
-        std::function<bool(std::vector<unsigned char>)> validBlock =
-                [&block, &chainparams](std::vector<unsigned char> soln) {
-            block.nSolution = soln;
-            return CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus());
-        };
-        found = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
-    } while (!found);
+        // Calculate RandomX hash
+        uint256 hash;
+        if (!RandomX_Hash_Block(ss.data(), ss.size(), hash)) {
+            break;
+        }
+
+        // Store hash in solution
+        block.nSolution.resize(32);
+        memcpy(block.nSolution.data(), hash.begin(), 32);
+
+        // Check if it meets difficulty target
+        if (UintToArith256(hash) <= hashTarget) {
+            break;
+        }
+    }
 
     CValidationState state;
     ProcessNewBlock(state, chainparams, NULL, &block, true, NULL);

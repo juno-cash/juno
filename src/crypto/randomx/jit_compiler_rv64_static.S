@@ -26,6 +26,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#if defined(__riscv) || defined(__riscv__) || defined(__riscv_xlen)
+
 #define DECL(x) x
 
 .text
@@ -1233,3 +1235,4 @@ DECL(randomx_riscv64_ssh_prefetch):
 
 DECL(randomx_riscv64_ssh_end):
     nop
+#endif /* __riscv */
