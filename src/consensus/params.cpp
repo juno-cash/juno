@@ -105,75 +105,49 @@ namespace Consensus {
     }
 
     int Params::Halving(int nHeight) const {
-        // zip208
-        // Halving(height) :=
-        // floor((height - SlowStartShift) / PreBlossomHalvingInterval), if not IsBlossomActivated(height)
-        // floor((BlossomActivationHeight - SlowStartShift) / PreBlossomHalvingInterval + (height - BlossomActivationHeight) / PostBlossomHalvingInterval), otherwise
-        if (NetworkUpgradeActive(nHeight, Consensus::UPGRADE_BLOSSOM)) {
-            int64_t blossomActivationHeight = vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight;
-            // Ideally we would say:
-            // halvings = (blossomActivationHeight - SubsidySlowStartShift()) / nPreBlossomSubsidyHalvingInterval
-            //     + (nHeight - blossomActivationHeight) / nPostBlossomSubsidyHalvingInterval;
-            // But, (blossomActivationHeight - SubsidySlowStartShift()) / nPreBlossomSubsidyHalvingInterval
-            // would need to be treated as a rational number in order for this to work.
-            // Define scaledHalvings := halvings * nPostBlossomSubsidyHalvingInterval;
-            int64_t scaledHalvings = ((blossomActivationHeight - SubsidySlowStartShift()) * Consensus::BLOSSOM_POW_TARGET_SPACING_RATIO)
-                + (nHeight - blossomActivationHeight);
-            return (int) (scaledHalvings / nPostBlossomSubsidyHalvingInterval);
-        } else {
-            return (nHeight - SubsidySlowStartShift()) / nPreBlossomSubsidyHalvingInterval;
+        // Simplified halving calculation for new emission curve
+        // - Blocks 0-120,000: Pre-halving phase (slow start + plateau)
+        // - Blocks 120,001-1,171,201: Initial halving epoch (6.25 COIN) - counts as halving 0
+        // - Blocks 1,171,202+: Standard halving epochs (every 2,102,400 blocks)
+
+        if (nHeight <= 120000) {
+            return 0;  // Pre-halving phase
         }
+
+        if (nHeight <= 1171201) {
+            return 1;  // Initial halving epoch (6.25 COIN)
+        }
+
+        // Standard halvings: starting from halving index 2
+        return 2 + ((nHeight - 1171201) / 2102400);
     }
 
     /**
      * This method determines the block height of the `halvingIndex`th
      * halving, as known at the specified `nHeight` block height.
      *
-     * Previous implementations of this logic were specialized to the
-     * first halving.
+     * Simplified for new emission curve.
      */
     int Params::HalvingHeight(int nHeight, int halvingIndex) const {
         assert(nHeight >= 0);
         assert(halvingIndex > 0);
 
-        // zip208
-        // HalvingHeight(i) := max({ height ⦂ N | Halving(height) < i }) + 1
-        //
-        // Halving(h) returns the halving index at the specified height.  It is
-        // defined as floor(f(h)) where f is a strictly increasing rational
-        // function, so it's sufficient to solve for f(height) = halvingIndex
-        // in the rationals and then take ceiling(height).
-        //
-        // H := blossom activation height;
-        // SS := SubsidySlowStartShift();
-        // R := 1 / (postInterval / preInterval) = BLOSSOM_POW_TARGET_SPACING_RATIO
-        // (The following calculation depends on BLOSSOM_POW_TARGET_SPACING_RATIO being an integer.)
-        //
-        // preBlossom:
-        // i = (height - SS) / preInterval
-        // height = (preInterval * i) + SS
-        //
-        // postBlossom:
-        // i = (H - SS) / preInterval + (HalvingHeight(i) - H) / postInterval
-        // preInterval = postInterval / R
-        // i = (H - SS) / (postInterval / R) + (HalvingHeight(i) - H) / postInterval
-        // i = (R * (H - SS) + HalvingHeight(i) - H) / postInterval
-        // postInterval * i = R * (H - SS) + HalvingHeight(i) - H
-        // HalvingHeight(i) = postInterval * i - R * (H - SS) + H
-        if (NetworkUpgradeActive(nHeight, Consensus::UPGRADE_BLOSSOM)) {
-            int blossomActivationHeight = vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight;
+        // Emission curve halving heights:
+        // Halving 1: Block 120,001 (first halving to 6.25 COIN)
+        // Halving 2: Block 1,171,202 (to 3.125 COIN)
+        // Halving 3+: Every 2,102,400 blocks after that
 
-            return
-                (nPostBlossomSubsidyHalvingInterval * halvingIndex)
-                - (BLOSSOM_POW_TARGET_SPACING_RATIO * (blossomActivationHeight - SubsidySlowStartShift()))
-                + blossomActivationHeight;
-        } else {
-            return (nPreBlossomSubsidyHalvingInterval * halvingIndex) + SubsidySlowStartShift();
+        if (halvingIndex == 1) {
+            return 120001;
         }
+
+        // Standard halvings starting from index 2
+        return 1171202 + ((halvingIndex - 2) * 2102400);
     }
 
     int Params::GetLastFoundersRewardBlockHeight(int nHeight) const {
-        return HalvingHeight(nHeight, 1) - 1;
+        // No founders reward (0% dev tax)
+        return 0;
     }
 
     int Params::FundingPeriodIndex(int fundingStreamStartHeight, int nHeight) const {
@@ -363,41 +337,71 @@ namespace Consensus {
 
     CAmount Params::GetBlockSubsidy(int nHeight) const
     {
-        CAmount nSubsidy = 12.5 * COIN;
+        // Emission schedule with ~21,000,000 JUNO maximum supply
+        // Phase breakdown:
+        // - Block 0: 0 coins (genesis block)
+        // - Blocks 1-20,000: Slow start (0.25 -> 12.5 coins linear) = 127,500 JUNO
+        // - Blocks 20,001-120,000: Plateau (12.5 coins constant) = 1,250,000 JUNO
+        // - Blocks 120,001-1,171,200: Initial halving (6.25 coins) = 6,570,000 JUNO
+        // - Blocks 1,171,201+: Standard halvings every 2,102,400 blocks
+        //   - Epoch 0 (1,171,201-3,273,600): 3.125 coins (ends early at 3273599 due to integer division)
+        //   - Epoch 1 (3,273,600-5,375,999): 1.5625 coins
+        //   - Epoch 2 (5,376,002-7,478,401): 0.78125 coins
+        //   - Epoch 3 (7,478,402-9,580,801): 0.390625 coins
+        //   - Epoch 4 (9,580,802-11,683,201): 0.1953125 coins
+        //   - Epoch 5 (11,683,202-13,785,601): 0.09765625 coins
+        //   - Epoch 6 (13,785,602-15,888,001): 0.048828125 coins
+        //   - Epoch 7 (15,888,002-16,508,927): 0.024414063 coins (partial, 620,926 blocks)
+        // - After block 16,508,927: 0 coins (21M cap reached)
+        //
+        // Total supply: 20,999,999.98783572 JUNO (1,216,428 monetas short of 21M due to hard cutoff)
 
-        // Mining slow start
-        // The subsidy is ramped up linearly, skipping the middle payout of
-        // MAX_SUBSIDY/2 to keep the monetary curve consistent with no slow start.
-        if (nHeight < this->SubsidySlowStartShift()) {
-            nSubsidy /= this->nSubsidySlowStartInterval;
-            nSubsidy *= nHeight;
-            return nSubsidy;
-        } else if (nHeight < this->nSubsidySlowStartInterval) {
-            nSubsidy /= this->nSubsidySlowStartInterval;
-            nSubsidy *= (nHeight+1);
-            return nSubsidy;
-        }
+        static const int SLOW_START_INTERVAL = 20000;
+        static const int PLATEAU_END = 120000;
+        static const int INITIAL_HALVING_END = 1171200;
+        static const int STANDARD_HALVING_INTERVAL = 2102400;
+        static const int MAX_HEIGHT = 16508927;
 
-        assert(nHeight >= this->SubsidySlowStartShift());
-
-        int halvings = this->Halving(nHeight);
-
-        // Force block reward to zero when right shift is undefined.
-        if (halvings >= 64)
+        // Maximum supply enforcement - hard cap at 21M
+        if (nHeight > MAX_HEIGHT) {
             return 0;
-
-        // zip208
-        // BlockSubsidy(height) :=
-        // SlowStartRate · height, if height < SlowStartInterval / 2
-        // SlowStartRate · (height + 1), if SlowStartInterval / 2 ≤ height and height < SlowStartInterval
-        // floor(MaxBlockSubsidy / 2^Halving(height)), if SlowStartInterval ≤ height and not IsBlossomActivated(height)
-        // floor(MaxBlockSubsidy / (BlossomPoWTargetSpacingRatio · 2^Halving(height))), otherwise
-        if (this->NetworkUpgradeActive(nHeight, Consensus::UPGRADE_BLOSSOM)) {
-            return (nSubsidy / Consensus::BLOSSOM_POW_TARGET_SPACING_RATIO) >> halvings;
-        } else {
-            // Subsidy is cut in half every 840,000 blocks which will occur approximately every 4 years.
-            return nSubsidy >> halvings;
         }
+
+        // Genesis block
+        if (nHeight == 0) {
+            return 0;
+        }
+
+        // Slow start: linear ramp from 0.25 to 12.5 COIN over 20,000 blocks
+        // Formula: subsidy = 0.25 + (height - 1) * (12.25 / 19999)
+        // In monetas: subsidy = 25000000 + ((height - 1) * 1225000000) / 19999
+        if (nHeight <= SLOW_START_INTERVAL) {
+            CAmount nSubsidy = 25000000LL + (((nHeight - 1) * 1225000000LL) / 19999);
+            return nSubsidy;
+        }
+
+        // Plateau: constant 12.5 COIN for 100,000 blocks
+        if (nHeight <= PLATEAU_END) {
+            return 1250000000LL;  // 12.5 * COIN
+        }
+
+        // Initial halving epoch: 6.25 COIN for 1,051,200 blocks (120,001-1,171,200)
+        if (nHeight <= INITIAL_HALVING_END) {
+            return 625000000LL;  // 6.25 * COIN
+        }
+
+        // Standard halvings: starting from 3.125 COIN, halving every 2,102,400 blocks
+        // Calculate which halving epoch we're in
+        int halvings = (nHeight - INITIAL_HALVING_END) / STANDARD_HALVING_INTERVAL;
+        CAmount nSubsidy = 312500000LL;  // 3.125 * COIN
+
+        // Force block reward to zero when right shift is undefined
+        if (halvings >= 64) {
+            return 0;
+        }
+
+        nSubsidy >>= halvings;  // Right shift = divide by 2^halvings
+        return nSubsidy;
     }
 
     std::vector<std::pair<FSInfo, FundingStream>> Params::GetActiveFundingStreams(int nHeight) const
