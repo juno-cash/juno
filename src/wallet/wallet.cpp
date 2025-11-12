@@ -6678,6 +6678,87 @@ bool CWallet::InitLoadWallet(const CChainParams& params, bool clearWitnessCaches
 
     LogPrintf(" wallet      %15dms\n", GetTimeMillis() - nStart);
 
+    // Auto-initialize account 0 and log default addresses
+    if (!walletInstance->IsCrypted() && walletInstance->HaveMnemonicSeed()) {
+        LOCK(walletInstance->cs_wallet);
+
+        // Check if account 0 exists
+        auto existingUfvk = walletInstance->GetUnifiedFullViewingKeyByAccount(libzcash::AccountId(0));
+
+        if (!existingUfvk.has_value()) {
+            // Account 0 doesn't exist - create it
+            try {
+                auto ufvkNew = walletInstance->GenerateNewUnifiedSpendingKey();
+                libzcash::AccountId account = ufvkNew.second;
+
+                LogPrintf("Auto-created unified account %d\n", account);
+
+                // Generate default unified address for account 0
+                auto receiverTypes = CWallet::DefaultReceiverTypes(chainActive.Height());
+                auto addrResult = walletInstance->GenerateUnifiedAddress(account, receiverTypes, std::nullopt);
+
+                examine(addrResult, match {
+                    [&](std::pair<libzcash::UnifiedAddress, libzcash::diversifier_index_t> addr) {
+                        KeyIO keyIO(Params());
+                        std::string encodedUA = keyIO.EncodePaymentAddress(addr.first);
+                        LogPrintf("Default unified address: %s\n", encodedUA);
+                    },
+                    [&](WalletUAGenerationError error) {
+                        LogPrintf("Warning: Could not generate unified address for account 0 (wallet error)\n");
+                    },
+                    [&](libzcash::UnifiedAddressGenerationError error) {
+                        LogPrintf("Warning: Could not generate unified address for account 0 (generation error)\n");
+                    }
+                });
+            } catch (const std::exception& e) {
+                LogPrintf("Warning: Could not auto-create account 0: %s\n", e.what());
+            }
+        } else {
+            // Account 0 exists - get and log the first existing address
+            try {
+                auto ufvk = existingUfvk.value();
+
+                // Find the UFVK ID for account 0
+                auto seedFp = walletInstance->GetMnemonicSeed().value().Fingerprint();
+                auto acctKey = std::make_pair(seedFp, libzcash::AccountId(0));
+                auto ufvkIdIt = walletInstance->mapUnifiedAccountKeys.find(acctKey);
+
+                if (ufvkIdIt != walletInstance->mapUnifiedAccountKeys.end()) {
+                    auto ufvkId = ufvkIdIt->second;
+                    auto ufvkMetadataIt = walletInstance->mapUfvkAddressMetadata.find(ufvkId);
+
+                    if (ufvkMetadataIt != walletInstance->mapUfvkAddressMetadata.end()) {
+                        auto diversifiersMap = ufvkMetadataIt->second.GetKnownReceiverSetsByDiversifierIndex();
+
+                        if (!diversifiersMap.empty()) {
+                            // Get the first (lowest) diversifier index
+                            auto firstAddr = diversifiersMap.begin();
+                            auto j = firstAddr->first;
+                            auto receiverTypes = firstAddr->second;
+
+                            // Get the unified address
+                            auto uaResult = ufvk.Address(j, receiverTypes);
+                            auto uaPair = std::get<std::pair<libzcash::UnifiedAddress, libzcash::diversifier_index_t>>(uaResult);
+
+                            KeyIO keyIO(Params());
+                            std::string encodedUA = keyIO.EncodePaymentAddress(uaPair.first);
+                            LogPrintf("Default unified address: %s\n", encodedUA);
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
+                // Silently skip if address retrieval fails
+            }
+        }
+    }
+
+    // Log transparent default address (always, on every startup)
+    if (walletInstance->vchDefaultKey.IsValid()) {
+        KeyIO keyIO(Params());
+        std::string transparentAddr = keyIO.EncodeDestination(walletInstance->vchDefaultKey.GetID());
+        LogPrintf("Default transparent address: %s\n", transparentAddr);
+    }
+
     RegisterValidationInterface(walletInstance);
 
     // Check for Orchard note commitment tree corruption and trigger a rescan
