@@ -354,9 +354,7 @@ public:
     unsigned int nBits;
     uint256 nNonce;
 protected:
-    // The Equihash solution, if it is stored. Once we know that the block index
-    // entry is present in leveldb, this field can be cleared via the TrimSolution
-    // method to save memory.
+    // The proof-of-work solution (RandomX hash, 32 bytes).
     std::vector<unsigned char> nSolution;
 
 public:
@@ -448,9 +446,6 @@ public:
     //! Get the block header for this block index. Requires cs_main.
     CBlockHeader GetBlockHeader() const;
 
-    //! Clear the Equihash solution to save memory. Requires cs_main.
-    void TrimSolution();
-
     uint256 GetBlockHash() const
     {
         assert(phashBlock);
@@ -502,6 +497,11 @@ public:
         return !nSolution.empty();
     }
 
+    void SetSolution(const std::vector<unsigned char>& solution)
+    {
+        nSolution = solution;
+    }
+
     //! Raise the validity level of this block index entry.
     //! Returns true if the validity was changed.
     bool RaiseValidity(enum BlockStatus nUpTo)
@@ -540,11 +540,8 @@ public:
         hashPrev = uint256();
     }
 
-    explicit CDiskBlockIndex(const CBlockIndex* pindex, std::function<std::vector<unsigned char>()> getSolution) : CBlockIndex(*pindex) {
+    explicit CDiskBlockIndex(const CBlockIndex* pindex) : CBlockIndex(*pindex) {
         hashPrev = (pprev ? pprev->GetBlockHash() : uint256());
-        if (!HasSolution()) {
-            nSolution = getSolution();
-        }
     }
 
     ADD_SERIALIZE_METHODS;
@@ -663,6 +660,11 @@ public:
     {
         assert(HasSolution());
         return nSolution;
+    }
+
+    void SetSolution(const std::vector<unsigned char>& solution)
+    {
+        nSolution = solution;
     }
 
     std::string ToString() const

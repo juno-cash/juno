@@ -3922,12 +3922,6 @@ bool static FlushStateToDisk(
             if (!pblocktree->WriteBatchSync(vFiles, nLastBlockFile, vBlocks)) {
                 return AbortNode(state, "Files to write to block index database");
             }
-            // Now that we have written the block indices to the database, we do not
-            // need to store solutions for these CBlockIndex objects in memory.
-            // cs_main must be held here.
-            for (CBlockIndex *pblockindex : vBlocks) {
-                pblockindex->TrimSolution();
-            }
         }
         // Finally remove any pruned files
         if (fFlushForPrune)

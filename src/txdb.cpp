@@ -479,22 +479,8 @@ bool CBlockTreeDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockF
     batch.Write(DB_LAST_BLOCK, nLastFile);
     for (const auto& it : blockinfo) {
         std::pair<char, uint256> key = make_pair(DB_BLOCK_INDEX, it->GetBlockHash());
-        try {
-            CDiskBlockIndex dbindex {it, [this, &key]() {
-                MetricsIncrementCounter("zcashd.debug.blocktree.write_batch_read_dbindex");
-                // It can happen that the index entry is written, then the Equihash solution is cleared from memory,
-                // then the index entry is rewritten. In that case we must read the solution from the old entry.
-                CDiskBlockIndex dbindex_old;
-                if (!Read(key, dbindex_old)) {
-                    LogPrintf("%s: Failed to read index entry", __func__);
-                    throw runtime_error("Failed to read index entry");
-                }
-                return dbindex_old.GetSolution();
-            }};
-            batch.Write(key, dbindex);
-        } catch (const runtime_error&) {
-            return false;
-        }
+        CDiskBlockIndex dbindex {it};
+        batch.Write(key, dbindex);
     }
     return WriteBatch(batch, true);
 }
@@ -708,7 +694,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(
                 pindexNew->nTime          = diskindex.nTime;
                 pindexNew->nBits          = diskindex.nBits;
                 pindexNew->nNonce         = diskindex.nNonce;
-                // the Equihash solution will be loaded lazily from the dbindex entry
+                pindexNew->SetSolution(diskindex.GetSolution());
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nCachedBranchId = diskindex.nCachedBranchId;
                 pindexNew->nTx            = diskindex.nTx;
@@ -726,7 +712,8 @@ bool CBlockTreeDB::LoadBlockIndexGuts(
                 // Check the block hash against the required difficulty as encoded in the
                 // nBits field. The probability of this succeeding randomly is low enough
                 // that it is a useful check to detect logic or disk storage errors.
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
+                // Skip this check for genesis block (height 0) which is validated by hash match in chainparams.
+                if (pindexNew->nHeight > 0 && !CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
                     return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
 
                 // ZIP 221 consistency checks
