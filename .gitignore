@@ -133,3 +133,4 @@ src/fuzz.cpp
 .updatecheck-token
 .env
 poetry.lock
+release/
