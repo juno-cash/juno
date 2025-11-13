@@ -58,7 +58,7 @@ const char * DEFAULT_WALLET_DAT = "wallet.dat";
 std::set<ReceiverType> CWallet::DefaultReceiverTypes(int nHeight) {
     // For now, just ignore the height information because the default
     // is always the same.
-    return {ReceiverType::P2PKH, ReceiverType::Sapling, ReceiverType::Orchard};
+    return {ReceiverType::P2PKH, ReceiverType::Orchard};
 }
 
 /** @defgroup mapWallet
@@ -581,7 +581,7 @@ std::optional<libzcash::ZcashdUnifiedSpendingKey>
         auto addSaplingKey = AddSpendingKeyToWallet(
             this, Params().GetConsensus(), GetTime(),
             libzcash::Zip32AccountKeyPath(BIP44CoinType(), accountId),
-            skmeta.GetSeedFingerprint().GetHex(), true, false
+            skmeta.GetSeedFingerprint().GetHex(), false, false
         );
 
         // Add the Sapling spending key to the wallet
