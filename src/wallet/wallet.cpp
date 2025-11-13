@@ -58,7 +58,7 @@ const char * DEFAULT_WALLET_DAT = "wallet.dat";
 std::set<ReceiverType> CWallet::DefaultReceiverTypes(int nHeight) {
     // For now, just ignore the height information because the default
     // is always the same.
-    return {ReceiverType::P2PKH, ReceiverType::Orchard};
+    return {ReceiverType::Orchard};
 }
 
 /** @defgroup mapWallet
