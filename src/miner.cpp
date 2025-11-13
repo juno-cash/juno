@@ -849,9 +849,6 @@ void static BitcoinMiner(const CChainParams& chainparams)
     // Each thread has its own counter
     unsigned int nExtraNonce = 0;
 
-    std::optional<MinerAddress> maybeMinerAddress;
-    GetMainSignals().AddressForMining(maybeMinerAddress);
-
     // Juno Cash: Legacy Equihash parameters removed
     // unsigned int n = chainparams.GetConsensus().nEquihashN;
     // unsigned int k = chainparams.GetConsensus().nEquihashK;
@@ -872,13 +869,17 @@ void static BitcoinMiner(const CChainParams& chainparams)
     miningTimer.start();
 
     try {
-        // Throw an error if no address valid for mining was provided.
-        if (!(maybeMinerAddress.has_value() && std::visit(IsValidMinerAddress(), maybeMinerAddress.value()))) {
-            throw std::runtime_error("No miner address available (mining requires a wallet or -mineraddress)");
-        }
-        auto minerAddress = maybeMinerAddress.value();
-
         while (true) {
+            // Get a fresh address for each block
+            std::optional<MinerAddress> maybeMinerAddress;
+            GetMainSignals().AddressForMining(maybeMinerAddress);
+
+            // Throw an error if no address valid for mining was provided.
+            if (!(maybeMinerAddress.has_value() && std::visit(IsValidMinerAddress(), maybeMinerAddress.value()))) {
+                throw std::runtime_error("No miner address available (mining requires a wallet or -mineraddress)");
+            }
+            auto minerAddress = maybeMinerAddress.value();
+
             if (chainparams.MiningRequiresPeers()) {
                 // Busy-wait for the network to come online so we don't waste time mining
                 // on an obsolete chain. In regtest mode we expect to fly solo.

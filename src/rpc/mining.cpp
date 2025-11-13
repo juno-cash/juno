@@ -194,26 +194,6 @@ UniValue generate(const UniValue& params, bool fHelp)
     int nHeight = 0;
     int nGenerate = params[0].get_int();
 
-    std::optional<MinerAddress> maybeMinerAddress;
-    GetMainSignals().AddressForMining(maybeMinerAddress);
-
-    // Throw an error if no address valid for mining was provided.
-    if (!maybeMinerAddress.has_value()) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "No miner address available (mining requires a wallet or -mineraddress)");
-    } else {
-        // Detect and handle keypool exhaustion separately from IsValidMinerAddress().
-        auto resv = std::get_if<boost::shared_ptr<CReserveScript>>(&maybeMinerAddress.value());
-        if (resv && !resv->get()) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-        }
-
-        // Catch any other invalid miner address issues.
-        if (!std::visit(IsValidMinerAddress(), maybeMinerAddress.value())) {
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Miner address is invalid");
-        }
-    }
-    auto minerAddress = maybeMinerAddress.value();
-
     {   // Don't keep cs_main locked
         LOCK(cs_main);
         nHeightStart = chainActive.Height();
@@ -227,6 +207,27 @@ UniValue generate(const UniValue& params, bool fHelp)
     // unsigned int k = Params().GetConsensus().nEquihashK;
     while (nHeight < nHeightEnd)
     {
+        // Get a fresh address for each block
+        std::optional<MinerAddress> maybeMinerAddress;
+        GetMainSignals().AddressForMining(maybeMinerAddress);
+
+        // Throw an error if no address valid for mining was provided.
+        if (!maybeMinerAddress.has_value()) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "No miner address available (mining requires a wallet or -mineraddress)");
+        } else {
+            // Detect and handle keypool exhaustion separately from IsValidMinerAddress().
+            auto resv = std::get_if<boost::shared_ptr<CReserveScript>>(&maybeMinerAddress.value());
+            if (resv && !resv->get()) {
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+            }
+
+            // Catch any other invalid miner address issues.
+            if (!std::visit(IsValidMinerAddress(), maybeMinerAddress.value())) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Miner address is invalid");
+            }
+        }
+        auto minerAddress = maybeMinerAddress.value();
+
         std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(minerAddress));
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
