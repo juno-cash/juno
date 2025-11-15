@@ -991,7 +991,7 @@ void InitLogging()
         fLogTimestamps);
 
     LogPrintf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    LogPrintf("Zcash version %s\n", FormatFullVersion());
+    LogPrintf("Juno Cash version %s\n", FormatFullVersion());
 }
 
 [[noreturn]] static void new_handler_terminate()
