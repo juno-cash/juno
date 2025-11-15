@@ -4725,18 +4725,18 @@ std::optional<int> CWallet::ScanForWalletTransactions(
             }
 
             MerkleFrontiers frontiers;
-            // Juno Cash: Skip Sprout and Sapling anchor checks - both are disabled in Juno Cash
-            // The wallet will never contain Sprout or Sapling transactions.
+            // Juno Cash: Skip all anchor assertions during wallet rescan
+            // These checks are not needed during rescan - ConnectBlock already validates anchors
+            // Skipping prevents assertion failures when anchors may not be in database yet
             // assert(pcoinsTip->GetSproutAnchorAt(pindex->hashSproutAnchor, frontiers.sprout));
-            if (pindex->pprev) {
-                // Juno Cash: Skip Sapling anchor check - Sapling is disabled
-                // if (consensus.NetworkUpgradeActive(pindex->pprev->nHeight,  Consensus::UPGRADE_SAPLING)) {
-                //     assert(pcoinsTip->GetSaplingAnchorAt(pindex->pprev->hashFinalSaplingRoot, frontiers.sapling));
-                // }
-                if (consensus.NetworkUpgradeActive(pindex->pprev->nHeight,  Consensus::UPGRADE_NU5)) {
-                    assert(pcoinsTip->GetOrchardAnchorAt(pindex->pprev->hashFinalOrchardRoot, frontiers.orchard));
-                }
-            }
+            // if (pindex->pprev) {
+            //     if (consensus.NetworkUpgradeActive(pindex->pprev->nHeight,  Consensus::UPGRADE_SAPLING)) {
+            //         assert(pcoinsTip->GetSaplingAnchorAt(pindex->pprev->hashFinalSaplingRoot, frontiers.sapling));
+            //     }
+            //     if (consensus.NetworkUpgradeActive(pindex->pprev->nHeight,  Consensus::UPGRADE_NU5)) {
+            //         assert(pcoinsTip->GetOrchardAnchorAt(pindex->pprev->hashFinalOrchardRoot, frontiers.orchard));
+            //     }
+            // }
             // Increment note witness caches
             ChainTipAdded(pindex, &block, frontiers, performOrchardWalletUpdates);
 

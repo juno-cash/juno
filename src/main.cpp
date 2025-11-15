@@ -5765,7 +5765,10 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
                 pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
             }
         } else {
-            pindex->nCachedBranchId = SPROUT_BRANCH_ID;
+            // Juno Cash: Genesis activates all upgrades, so use the current epoch branch ID
+            // instead of SPROUT_BRANCH_ID. Also set the BLOCK_ACTIVATES_UPGRADE flag.
+            pindex->nCachedBranchId = CurrentEpochBranchId(0, chainparams.GetConsensus());
+            pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
         }
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL))
             setBlockIndexCandidates.insert(pindex);
@@ -5863,20 +5866,47 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
         return true;
     chainActive.SetTip(it->second);
 
-    // Juno Cash: Set nCachedBranchId for all blocks in the active chain loaded from disk
-    // nCachedBranchId is only serialized for upgrade activation blocks, so we need to
-    // recalculate it for all blocks based on their height to ensure correctness
-    const Consensus::Params& consensusParams = chainparams.GetConsensus();
-    LogPrintf("Juno Cash: Setting nCachedBranchId for chainActive.Height()=%d\n", chainActive.Height());
-    for (int height = 1; height <= chainActive.Height(); height++) {
-        CBlockIndex* pindex = chainActive[height];
-        uint32_t correctBranchId = CurrentEpochBranchId(height, consensusParams);
-        pindex->nCachedBranchId = correctBranchId;
-        LogPrintf("Juno Cash: Set nCachedBranchId for block %d to %08x\n", height, correctBranchId);
+    // Juno Cash: Initialize genesis block anchor roots if loading from disk
+    // and ensure they exist in the database
+    const Consensus::Params& genesisConsensus = chainparams.GetConsensus();
+    CBlockIndex* genesis = chainActive[0];
+    if (genesis && genesisConsensus.NetworkUpgradeActive(0, Consensus::UPGRADE_NU5)) {
+        if (genesis->hashFinalOrchardRoot.IsNull()) {
+            genesis->hashFinalOrchardRoot = OrchardMerkleFrontier::empty_root();
+            LogPrintf("Juno Cash: Initialized genesis block Orchard root to empty_root\n");
+        }
+        // Ensure the empty anchor exists in the database
+        OrchardMerkleFrontier tree;
+        if (!pcoinsTip->GetOrchardAnchorAt(genesis->hashFinalOrchardRoot, tree)) {
+            pcoinsTip->PushAnchor(OrchardMerkleFrontier());
+            LogPrintf("Juno Cash: Pushed genesis Orchard anchor to database\n");
+        }
+    }
+    if (genesis && genesisConsensus.NetworkUpgradeActive(0, Consensus::UPGRADE_SAPLING)) {
+        if (genesis->hashFinalSaplingRoot.IsNull()) {
+            genesis->hashFinalSaplingRoot = SaplingMerkleTree::empty_root();
+            LogPrintf("Juno Cash: Initialized genesis block Sapling root to empty_root\n");
+        }
+        // Ensure the empty anchor exists in the database
+        SaplingMerkleTree tree;
+        if (!pcoinsTip->GetSaplingAnchorAt(genesis->hashFinalSaplingRoot, tree)) {
+            pcoinsTip->PushAnchor(SaplingMerkleTree());
+            LogPrintf("Juno Cash: Pushed genesis Sapling anchor to database\n");
+        }
     }
 
     // Set hashFinalSproutRoot for the end of best chain
     it->second->hashFinalSproutRoot = pcoinsTip->GetBestAnchor(SPROUT);
+
+    // Juno Cash: Also set Sapling and Orchard roots for the best block from database
+    if (genesisConsensus.NetworkUpgradeActive(it->second->nHeight, Consensus::UPGRADE_SAPLING)) {
+        it->second->hashFinalSaplingRoot = pcoinsTip->GetBestAnchor(SAPLING);
+        LogPrintf("Juno Cash: Set best block Sapling root from database: %s\n", it->second->hashFinalSaplingRoot.ToString());
+    }
+    if (genesisConsensus.NetworkUpgradeActive(it->second->nHeight, Consensus::UPGRADE_NU5)) {
+        it->second->hashFinalOrchardRoot = pcoinsTip->GetBestAnchor(ORCHARD);
+        LogPrintf("Juno Cash: Set best block Orchard root from database: %s\n", it->second->hashFinalOrchardRoot.ToString());
+    }
 
     PruneBlockIndexCandidates();
 
@@ -6226,9 +6256,20 @@ bool RewindBlockIndex(const CChainParams& chainparams, bool& clearWitnessCaches)
         const Consensus::Params& consensus = chainparams.GetConsensus();
         bool fFlagSet = pindex->nStatus & BLOCK_ACTIVATES_UPGRADE;
         bool fFlagExpected = IsActivationHeightForAnyUpgrade(pindex->nHeight, consensus);
-        return fFlagSet == fFlagExpected &&
-            pindex->nCachedBranchId &&
-            *pindex->nCachedBranchId == CurrentEpochBranchId(pindex->nHeight, consensus);
+        bool flagMatch = (fFlagSet == fFlagExpected);
+        bool hasCachedBranchId = (bool)pindex->nCachedBranchId;
+        bool branchIdMatch = hasCachedBranchId && (*pindex->nCachedBranchId == CurrentEpochBranchId(pindex->nHeight, consensus));
+
+        // Juno Cash: Debug logging for validation checks
+        if (pindex->nHeight <= 10) {
+            LogPrintf("Juno Cash: Validation check height %d: flagSet=%d flagExpected=%d flagMatch=%d hasBranchId=%d branchId=%08x expected=%08x branchMatch=%d\n",
+                pindex->nHeight, fFlagSet?1:0, fFlagExpected?1:0, flagMatch?1:0, hasCachedBranchId?1:0,
+                hasCachedBranchId ? *pindex->nCachedBranchId : 0,
+                CurrentEpochBranchId(pindex->nHeight, consensus),
+                branchIdMatch?1:0);
+        }
+
+        return flagMatch && hasCachedBranchId && branchIdMatch;
     };
 
     int lastValidHeight = 0;
