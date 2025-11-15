@@ -48,6 +48,7 @@
 #endif
 #include "warnings.h"
 #include "zip317.h"
+#include "crypto/randomx_wrapper.h"
 #include <chrono>
 #include <stdint.h>
 #include <stdio.h>
@@ -1768,6 +1769,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     if (fPruneMode)
                         CleanupBlockRevFiles();
                 }
+
+                // Juno Cash: Initialize RandomX before loading block index
+                // This is required for PoW validation during LoadBlockIndex
+                RandomX_Init();
 
                 if (!LoadBlockIndex()) {
                     strLoadError = _("Error loading block database");

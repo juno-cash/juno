@@ -34,6 +34,15 @@ uint256 DeriveBlockCommitmentsHash(
 
 uint256 CBlockHeader::GetHash() const
 {
+    // Juno Cash: For RandomX blocks, the block hash is the RandomX hash stored in nSolution
+    // All blocks in Juno Cash use RandomX PoW
+    if (nSolution.size() == 32) {
+        uint256 hash;
+        memcpy(hash.begin(), nSolution.data(), 32);
+        return hash;
+    }
+
+    // Fallback for blocks without solution (shouldn't happen in Juno Cash)
     return SerializeHash(*this);
 }
 

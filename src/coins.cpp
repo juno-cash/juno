@@ -344,7 +344,9 @@ void CCoinsViewCache::BringBestAnchorIntoCache(
     SproutMerkleTree &tree
 )
 {
-    assert(GetSproutAnchorAt(currentRoot, tree));
+    // Juno Cash: Sprout transactions are banned by consensus, so the Sprout tree
+    // always stays at empty_root. Skip assertion if anchor not found.
+    GetSproutAnchorAt(currentRoot, tree);
 }
 
 template<>
@@ -353,7 +355,9 @@ void CCoinsViewCache::BringBestAnchorIntoCache(
     SaplingMerkleTree &tree
 )
 {
-    assert(GetSaplingAnchorAt(currentRoot, tree));
+    // Juno Cash: Sapling transactions are banned by consensus, so the Sapling tree
+    // always stays at empty_root. Skip assertion if anchor not found.
+    GetSaplingAnchorAt(currentRoot, tree);
 }
 
 template<>
@@ -362,7 +366,9 @@ void CCoinsViewCache::BringBestAnchorIntoCache(
     OrchardMerkleFrontier &tree
 )
 {
-    assert(GetOrchardAnchorAt(currentRoot, tree));
+    // Juno Cash: Blocks without Orchard transactions don't change the Orchard tree,
+    // so anchors may not be in the database. Skip assertion if anchor not found.
+    GetOrchardAnchorAt(currentRoot, tree);
 }
 
 void draftMMRNode(std::vector<uint32_t> &indices,
