@@ -303,9 +303,26 @@ void CCoinsViewCache::AbstractPushAnchor(
             // An insert took place
             cachedCoinsUsage += ret->second.tree.DynamicMemoryUsage();
         }
-
-        hash = newrt;
     }
+
+    // Juno Cash: Always update the hash reference, even when currentRoot == newrt.
+    // This is critical for ALWAYS_ACTIVE network upgrades at genesis.
+    //
+    // In Zcash, network upgrades (like NU5/Orchard) activate at specific heights
+    // long after genesis, so the first PushAnchor call for a new pool type always
+    // has currentRoot != newrt (currentRoot is null/uninitialized, newrt is empty_root).
+    //
+    // In Juno Cash, all upgrades are ALWAYS_ACTIVE from genesis (height 0). This means:
+    //   - Genesis block calls PushAnchor(orchard_tree) with empty_root
+    //   - Block 1 calls PushAnchor(orchard_tree) again, still with empty_root (no shielded txs)
+    //   - The condition (currentRoot != newrt) fails because both are empty_root
+    //   - Without this fix, hash would remain null, preventing database writes in txdb.cpp
+    //   - On restart, GetBestAnchor(ORCHARD) would fail to find the anchor
+    //   - Assertion at main.cpp:3300 would fail: pindex->pprev->hashFinalOrchardRoot == view.GetBestAnchor(ORCHARD)
+    //
+    // Moving hash assignment outside the if block ensures the anchor is always tracked
+    // in the database, even when the merkle tree root hasn't changed between blocks.
+    hash = newrt;
 }
 
 template<> void CCoinsViewCache::PushAnchor(const SproutMerkleTree &tree)
