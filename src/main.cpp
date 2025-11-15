@@ -3156,19 +3156,28 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
             // Before the genesis block, there was an empty tree
-            SproutMerkleTree tree;
-            pindex->hashSproutAnchor = tree.root();
+            SproutMerkleTree sprout_tree;
+            pindex->hashSproutAnchor = sprout_tree.root();
             // The genesis block contained no JoinSplits
             pindex->hashFinalSproutRoot = pindex->hashSproutAnchor;
 
             // Juno Cash: Initialize Sapling and Orchard roots for genesis block
             // since all upgrades are active from genesis
+            SaplingMerkleTree sapling_tree;
+            OrchardMerkleFrontier orchard_tree;
+
             if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_SAPLING)) {
                 pindex->hashFinalSaplingRoot = SaplingMerkleTree::empty_root();
             }
             if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_NU5)) {
                 pindex->hashFinalOrchardRoot = OrchardMerkleFrontier::empty_root();
             }
+
+            // Juno Cash: Push anchors to view to initialize anchor database
+            // This ensures empty roots are available for validation on restart
+            view.PushAnchor(sprout_tree);
+            view.PushAnchor(sapling_tree);
+            view.PushAnchor(orchard_tree);
         }
         return true;
     }
