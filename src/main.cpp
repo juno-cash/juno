@@ -5759,7 +5759,9 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
         // validity status because it is side-loaded into a fresh chain.
         // Activation blocks will have branch IDs set (read from disk).
         if (pindex->pprev) {
-            if (pindex->IsValid(BLOCK_VALID_CONSENSUS) && !pindex->nCachedBranchId) {
+            // Juno Cash: Set nCachedBranchId for all blocks, not just consensus-valid ones
+            // This ensures blocks loaded from disk have their branch ID set before validation checks
+            if (!pindex->nCachedBranchId) {
                 pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
             }
         } else {
@@ -5860,6 +5862,17 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
     if (it == mapBlockIndex.end())
         return true;
     chainActive.SetTip(it->second);
+
+    // Juno Cash: Propagate nCachedBranchId down the active chain for blocks loaded from disk
+    // nCachedBranchId is only serialized for upgrade activation blocks, so we need to
+    // set it for all other blocks by inheriting from their parent
+    for (int height = 1; height <= chainActive.Height(); height++) {
+        CBlockIndex* pindex = chainActive[height];
+        if (!pindex->nCachedBranchId && pindex->pprev) {
+            pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
+        }
+    }
+
     // Set hashFinalSproutRoot for the end of best chain
     it->second->hashFinalSproutRoot = pcoinsTip->GetBestAnchor(SPROUT);
 
