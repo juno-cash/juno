@@ -5863,14 +5863,16 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
         return true;
     chainActive.SetTip(it->second);
 
-    // Juno Cash: Propagate nCachedBranchId down the active chain for blocks loaded from disk
+    // Juno Cash: Set nCachedBranchId for all blocks in the active chain loaded from disk
     // nCachedBranchId is only serialized for upgrade activation blocks, so we need to
-    // set it for all other blocks by inheriting from their parent
+    // recalculate it for all blocks based on their height to ensure correctness
+    const Consensus::Params& consensusParams = chainparams.GetConsensus();
+    LogPrintf("Juno Cash: Setting nCachedBranchId for chainActive.Height()=%d\n", chainActive.Height());
     for (int height = 1; height <= chainActive.Height(); height++) {
         CBlockIndex* pindex = chainActive[height];
-        if (!pindex->nCachedBranchId && pindex->pprev) {
-            pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
-        }
+        uint32_t correctBranchId = CurrentEpochBranchId(height, consensusParams);
+        pindex->nCachedBranchId = correctBranchId;
+        LogPrintf("Juno Cash: Set nCachedBranchId for block %d to %08x\n", height, correctBranchId);
     }
 
     // Set hashFinalSproutRoot for the end of best chain
