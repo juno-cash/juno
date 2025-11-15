@@ -177,7 +177,8 @@ public:
         // Juno Cash: No funding streams (0% dev tax)
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000000000001517f0d837f57259");
+        // Juno Cash: Set to 0x00 for fresh blockchain to allow mining from genesis
+        consensus.nMinimumChainWork = uint256S("0x00");
 
         /**
          * Network magic bytes for Juno Cash - derived from Bitcoin block 919123 hash
@@ -343,7 +344,8 @@ public:
         consensus.nFutureTimestampSoftForkHeight = consensus.vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight + 6;
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("000000000000000000000000000000000000000000000000000000263c0984a2");
+        // Juno Cash: Set to 0x00 for fresh blockchain to allow mining from genesis
+        consensus.nMinimumChainWork = uint256S("0x00");
 
         pchMessageStart[0] = 0xa7;
         pchMessageStart[1] = 0x23;
