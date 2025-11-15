@@ -3161,17 +3161,21 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // The genesis block contained no JoinSplits
             pindex->hashFinalSproutRoot = pindex->hashSproutAnchor;
 
-            // Juno Cash: Initialize Sapling root for genesis block
-            // NU5 (Orchard) is NOT active at genesis - it activates at block 1
+            // Juno Cash: Initialize Sapling and Orchard roots for genesis block
             SaplingMerkleTree sapling_tree;
+            OrchardMerkleFrontier orchard_tree;
 
             if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_SAPLING)) {
                 pindex->hashFinalSaplingRoot = SaplingMerkleTree::empty_root();
+            }
+            if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_NU5)) {
+                pindex->hashFinalOrchardRoot = OrchardMerkleFrontier::empty_root();
             }
 
             // Juno Cash: Push anchors to view to initialize anchor database
             view.PushAnchor(sprout_tree);
             view.PushAnchor(sapling_tree);
+            view.PushAnchor(orchard_tree);
         }
         return true;
     }

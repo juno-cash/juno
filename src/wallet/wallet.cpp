@@ -4725,13 +4725,14 @@ std::optional<int> CWallet::ScanForWalletTransactions(
             }
 
             MerkleFrontiers frontiers;
-            // This should never fail: we should always be able to get the tree
-            // state on the path to the tip of our chain
-            assert(pcoinsTip->GetSproutAnchorAt(pindex->hashSproutAnchor, frontiers.sprout));
+            // Juno Cash: Skip Sprout and Sapling anchor checks - both are disabled in Juno Cash
+            // The wallet will never contain Sprout or Sapling transactions.
+            // assert(pcoinsTip->GetSproutAnchorAt(pindex->hashSproutAnchor, frontiers.sprout));
             if (pindex->pprev) {
-                if (consensus.NetworkUpgradeActive(pindex->pprev->nHeight,  Consensus::UPGRADE_SAPLING)) {
-                    assert(pcoinsTip->GetSaplingAnchorAt(pindex->pprev->hashFinalSaplingRoot, frontiers.sapling));
-                }
+                // Juno Cash: Skip Sapling anchor check - Sapling is disabled
+                // if (consensus.NetworkUpgradeActive(pindex->pprev->nHeight,  Consensus::UPGRADE_SAPLING)) {
+                //     assert(pcoinsTip->GetSaplingAnchorAt(pindex->pprev->hashFinalSaplingRoot, frontiers.sapling));
+                // }
                 if (consensus.NetworkUpgradeActive(pindex->pprev->nHeight,  Consensus::UPGRADE_NU5)) {
                     assert(pcoinsTip->GetOrchardAnchorAt(pindex->pprev->hashFinalOrchardRoot, frontiers.orchard));
                 }
