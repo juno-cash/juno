@@ -3161,23 +3161,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // The genesis block contained no JoinSplits
             pindex->hashFinalSproutRoot = pindex->hashSproutAnchor;
 
-            // Juno Cash: Initialize Sapling and Orchard roots for genesis block
-            // since all upgrades are active from genesis
+            // Juno Cash: Initialize Sapling root for genesis block
+            // NU5 (Orchard) is NOT active at genesis - it activates at block 1
             SaplingMerkleTree sapling_tree;
-            OrchardMerkleFrontier orchard_tree;
 
             if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_SAPLING)) {
                 pindex->hashFinalSaplingRoot = SaplingMerkleTree::empty_root();
             }
-            if (consensusParams.NetworkUpgradeActive(0, Consensus::UPGRADE_NU5)) {
-                pindex->hashFinalOrchardRoot = OrchardMerkleFrontier::empty_root();
-            }
 
             // Juno Cash: Push anchors to view to initialize anchor database
-            // This ensures empty roots are available for validation on restart
             view.PushAnchor(sprout_tree);
             view.PushAnchor(sapling_tree);
-            view.PushAnchor(orchard_tree);
         }
         return true;
     }
@@ -3297,7 +3291,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     OrchardMerkleFrontier orchard_tree;
     if (pindex->pprev && consensusParams.NetworkUpgradeActive(pindex->pprev->nHeight, Consensus::UPGRADE_NU5)) {
         // Verify that the view's current state corresponds to the previous block.
-        assert(pindex->pprev->hashFinalOrchardRoot == view.GetBestAnchor(ORCHARD));
+        uint256 viewBestAnchor = view.GetBestAnchor(ORCHARD);
+        LogPrintf("ConnectBlock height %d: Orchard anchor check - pprev->hashFinalOrchardRoot=%s, view.GetBestAnchor(ORCHARD)=%s\n",
+                  pindex->nHeight, pindex->pprev->hashFinalOrchardRoot.ToString(), viewBestAnchor.ToString());
+        assert(pindex->pprev->hashFinalOrchardRoot == viewBestAnchor);
         // We only call ConnectBlock on top of the active chain's tip.
         assert(!pindex->pprev->hashFinalOrchardRoot.IsNull());
 

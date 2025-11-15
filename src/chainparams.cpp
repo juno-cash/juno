@@ -24,13 +24,13 @@
 
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const uint256& nNonce, const std::vector<unsigned char>& nSolution, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
-    // Juno Cash: Create genesis block with v5 transaction format (ZIP225/NU5)
-    // Since all network upgrades are ALWAYS_ACTIVE from genesis, use the most current format
+    // Juno Cash: Genesis uses Canopy-era transaction format (v4)
+    // NU5 (Orchard) activates at block 1 to avoid genesis anchor initialization issues
     CMutableTransaction txNew;
     txNew.fOverwintered = true;
-    txNew.nVersionGroupId = ZIP225_VERSION_GROUP_ID;
-    txNew.nVersion = ZIP225_TX_VERSION;
-    txNew.nConsensusBranchId = NetworkUpgradeInfo[Consensus::UPGRADE_NU6_1].nBranchId;
+    txNew.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
+    txNew.nVersion = SAPLING_TX_VERSION;
+    txNew.nConsensusBranchId = NetworkUpgradeInfo[Consensus::UPGRADE_CANOPY].nBranchId;
     txNew.nExpiryHeight = 0;  // Coinbase transactions never expire
     txNew.nLockTime = 0;
     txNew.vin.resize(1);
@@ -135,15 +135,14 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_CANOPY].nProtocolVersion = 170013;
         consensus.vUpgrades[Consensus::UPGRADE_CANOPY].nActivationHeight =
             Consensus::NetworkUpgrade::ALWAYS_ACTIVE;
+        // Juno Cash: Delay NU5/NU6 activation to avoid genesis anchor issues
+        // NU5 (Orchard) activates at block 1, not genesis
         consensus.vUpgrades[Consensus::UPGRADE_NU5].nProtocolVersion = 170100;
-        consensus.vUpgrades[Consensus::UPGRADE_NU5].nActivationHeight =
-            Consensus::NetworkUpgrade::ALWAYS_ACTIVE;
+        consensus.vUpgrades[Consensus::UPGRADE_NU5].nActivationHeight = 1;
         consensus.vUpgrades[Consensus::UPGRADE_NU6].nProtocolVersion = 170120;
-        consensus.vUpgrades[Consensus::UPGRADE_NU6].nActivationHeight =
-            Consensus::NetworkUpgrade::ALWAYS_ACTIVE;
+        consensus.vUpgrades[Consensus::UPGRADE_NU6].nActivationHeight = 2;
         consensus.vUpgrades[Consensus::UPGRADE_NU6_1].nProtocolVersion = 170140;
-        consensus.vUpgrades[Consensus::UPGRADE_NU6_1].nActivationHeight =
-            Consensus::NetworkUpgrade::ALWAYS_ACTIVE;
+        consensus.vUpgrades[Consensus::UPGRADE_NU6_1].nActivationHeight = 3;
         consensus.vUpgrades[Consensus::UPGRADE_ZFUTURE].nProtocolVersion = 0x7FFFFFFF;
         consensus.vUpgrades[Consensus::UPGRADE_ZFUTURE].nActivationHeight =
             Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
