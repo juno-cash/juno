@@ -6260,15 +6260,6 @@ bool RewindBlockIndex(const CChainParams& chainparams, bool& clearWitnessCaches)
         bool hasCachedBranchId = (bool)pindex->nCachedBranchId;
         bool branchIdMatch = hasCachedBranchId && (*pindex->nCachedBranchId == CurrentEpochBranchId(pindex->nHeight, consensus));
 
-        // Juno Cash: Debug logging for validation checks
-        if (pindex->nHeight <= 10) {
-            LogPrintf("Juno Cash: Validation check height %d: flagSet=%d flagExpected=%d flagMatch=%d hasBranchId=%d branchId=%08x expected=%08x branchMatch=%d\n",
-                pindex->nHeight, fFlagSet?1:0, fFlagExpected?1:0, flagMatch?1:0, hasCachedBranchId?1:0,
-                hasCachedBranchId ? *pindex->nCachedBranchId : 0,
-                CurrentEpochBranchId(pindex->nHeight, consensus),
-                branchIdMatch?1:0);
-        }
-
         return flagMatch && hasCachedBranchId && branchIdMatch;
     };
 
