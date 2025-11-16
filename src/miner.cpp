@@ -277,11 +277,54 @@ public:
 
         // Miner output will be vout[0]; Founders' Reward & funding stream outputs
         // will follow.
-        mtx.vout.resize(1);
-        auto value = SetFoundersRewardAndGetMinerValue(*saplingBuilder);
+        auto total_value = SetFoundersRewardAndGetMinerValue(*saplingBuilder);
 
-        // Now fill in the miner's output.
-        mtx.vout[0] = CTxOut(value, coinbaseScript->reserveScript);
+        // Calculate donation if configured
+        int donationPercent = GetArg("-donationpercentage", 0);
+        std::string donationAddrStr = GetArg("-donationaddress", "");
+
+        // Set default donation addresses if not overridden
+        if (donationAddrStr.empty() && donationPercent > 0) {
+            if (chainparams.NetworkIDString() == "main") {
+                donationAddrStr = "t1HuKnfjJdtkMA2dMYpPeFgkMeX3pnLFppA";
+            } else if (chainparams.NetworkIDString() == "test") {
+                donationAddrStr = "tmJV5QYQZa5wuCQUBd5pTKuWnKvQYhriiHw";
+            }
+        }
+
+        CAmount donationAmount = 0;
+        CAmount minerAmount = total_value;
+        CScript donationScript;
+
+        if (donationPercent > 0 && !donationAddrStr.empty()) {
+            // Calculate donation using integer math
+            donationAmount = (total_value * donationPercent) / 100;
+            minerAmount = total_value - donationAmount;
+
+            // Parse donation address to create script
+            KeyIO keyIO(chainparams);
+            auto donationAddr = keyIO.DecodePaymentAddress(donationAddrStr);
+            if (donationAddr.has_value() && std::holds_alternative<CKeyID>(donationAddr.value())) {
+                donationScript = GetScriptForDestination(std::get<CKeyID>(donationAddr.value()));
+            } else {
+                // Invalid donation address, log warning and skip donation
+                LogPrintf("Warning: Invalid donation address '%s', skipping donation\n", donationAddrStr);
+                minerAmount = total_value;
+                donationAmount = 0;
+            }
+        }
+
+        // Create outputs
+        if (donationAmount > 0 && !donationScript.empty()) {
+            mtx.vout.resize(2);
+            mtx.vout[0] = CTxOut(minerAmount, coinbaseScript->reserveScript);
+            mtx.vout[1] = CTxOut(donationAmount, donationScript);
+            LogPrint("pow", "%s: Adding donation output of %s (%d%%) to %s\n",
+                     __func__, FormatMoney(donationAmount), donationPercent, donationAddrStr);
+        } else {
+            mtx.vout.resize(1);
+            mtx.vout[0] = CTxOut(minerAmount, coinbaseScript->reserveScript);
+        }
 
         ComputeBindingSig(std::move(saplingBuilder), std::nullopt);
     }
@@ -818,7 +861,23 @@ void IncrementExtraNonce(
 static bool ProcessBlockFound(const CBlock* pblock, const CChainParams& chainparams)
 {
     LogPrintf("%s\n", pblock->ToString());
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue));
+
+    // Log coinbase outputs
+    CAmount totalMinerReward = 0;
+    for (size_t i = 0; i < pblock->vtx[0].vout.size(); i++) {
+        totalMinerReward += pblock->vtx[0].vout[i].nValue;
+    }
+
+    if (pblock->vtx[0].vout.size() > 1) {
+        // Has donation output
+        LogPrintf("generated %s to miner, %s donation (%d%% of %s total)\n",
+                  FormatMoney(pblock->vtx[0].vout[0].nValue),
+                  FormatMoney(pblock->vtx[0].vout[1].nValue),
+                  GetArg("-donationpercentage", 0),
+                  FormatMoney(totalMinerReward));
+    } else {
+        LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue));
+    }
 
     // Found a solution
     {

@@ -1435,6 +1435,32 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 mapArgs["-mineraddress"]));
         }
     }
+
+    // Validate donation configuration
+    if (mapArgs.count("-donationpercentage")) {
+        int donationPercent = GetArg("-donationpercentage", 0);
+        if (donationPercent < 0 || donationPercent > 100) {
+            return InitError(strprintf(
+                _("Invalid value for -donationpercentage=<n>: '%d' (must be between 0 and 100)"),
+                donationPercent));
+        }
+    }
+
+    if (mapArgs.count("-donationaddress")) {
+        KeyIO keyIO(chainparams);
+        auto addr = keyIO.DecodePaymentAddress(mapArgs["-donationaddress"]);
+        if (!addr.has_value()) {
+            return InitError(strprintf(
+                _("Invalid address for -donationaddress=<addr>: Unable to parse '%s' as a Zcash address."),
+                mapArgs["-donationaddress"]));
+        }
+        // Donation address must be transparent P2PKH
+        if (!std::holds_alternative<CKeyID>(addr.value())) {
+            return InitError(strprintf(
+                _("Invalid address for -donationaddress=<addr>: '%s' (must be a transparent P2PKH address)"),
+                mapArgs["-donationaddress"]));
+        }
+    }
 #endif
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
