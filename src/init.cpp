@@ -1568,7 +1568,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         "version", CLIENT_BUILD.c_str());
 
     if ((chainparams.NetworkIDString() != "regtest") &&
-            GetBoolArg("-showmetrics", isatty(STDOUT_FILENO)) &&
+            GetBoolArg("-showmetrics", false) &&
             !fPrintToConsole && !GetBoolArg("-daemon", false)) {
         // Start the persistent metrics interface
         ConnectMetricsScreen();
