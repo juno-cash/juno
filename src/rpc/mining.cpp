@@ -527,7 +527,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             "  \"sizelimit\" : n,                   (numeric) limit of block size\n"
             "  \"curtime\" : ttt,                   (numeric) current timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"bits\" : \"xxx\",                    (string) compressed target of next block\n"
-            "  \"height\" : n                       (numeric) The height of the next block\n"
+            "  \"height\" : n,                      (numeric) The height of the next block\n"
+            "  \"randomxseedheight\" : n,           (numeric) The block height whose hash is used as RandomX seed\n"
+            "  \"randomxseedhash\" : \"xxxx\",        (string) The RandomX seed hash to use (block hash or 0x08... for genesis)\n"
+            "  \"randomxnextseedhash\" : \"xxxx\"     (string, optional) The next epoch's seed hash (for pre-caching)\n"
             "}\n"
 
             "\nExamples:\n"
@@ -849,6 +852,53 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
+
+    // Add RandomX seed information for miners (matching Monero's getblocktemplate)
+    uint64_t nextBlockHeight = pindexPrev->nHeight + 1;
+    uint64_t seedHeight = RandomX_SeedHeight(nextBlockHeight);
+
+    // Add current seed height
+    result.pushKV("randomxseedheight", seedHeight);
+
+    // Add current seed hash (in internal byte order, no reversal)
+    if (seedHeight == 0) {
+        // Genesis epoch: use 0x08 followed by zeros
+        uint256 genesisSeed;
+        genesisSeed.SetNull();
+        *genesisSeed.begin() = 0x08;
+        result.pushKV("randomxseedhash", HexStr(genesisSeed.begin(), genesisSeed.end()));
+    } else {
+        // Get seed block hash
+        CBlockIndex* pindexSeed = chainActive[seedHeight];
+        if (pindexSeed) {
+            uint256 seedHash = pindexSeed->GetBlockHash();
+            result.pushKV("randomxseedhash", HexStr(seedHash.begin(), seedHash.end()));
+        } else {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Could not find RandomX seed block");
+        }
+    }
+
+    // Add next seed hash if we're approaching an epoch change
+    // This allows miners to pre-cache the next epoch's dataset
+    uint64_t nextSeedHeight = RandomX_SeedHeight(nextBlockHeight + RANDOMX_SEEDHASH_EPOCH_LAG);
+    if (nextSeedHeight != seedHeight) {
+        // We're in the lag period before an epoch change
+        if (nextSeedHeight == 0) {
+            // Next epoch uses genesis seed
+            uint256 genesisSeed;
+            genesisSeed.SetNull();
+            *genesisSeed.begin() = 0x08;
+            result.pushKV("randomxnextseedhash", HexStr(genesisSeed.begin(), genesisSeed.end()));
+        } else {
+            // Get next seed block hash
+            CBlockIndex* pindexNextSeed = chainActive[nextSeedHeight];
+            if (pindexNextSeed) {
+                uint256 nextSeedHash = pindexNextSeed->GetBlockHash();
+                result.pushKV("randomxnextseedhash", HexStr(nextSeedHash.begin(), nextSeedHash.end()));
+            }
+            // If next seed block doesn't exist yet, just don't include the field
+        }
+    }
 
     return result;
 }
