@@ -24,6 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#if defined(__x86_64__) || defined(_M_X64)
 .intel_syntax noprefix
 #if defined(__APPLE__)
 .text
@@ -230,3 +231,5 @@ DECL(randomx_reciprocal_fast):
 #endif
 	#include "asm/randomx_reciprocal.inc"
 #endif /* __x86_64__ */
+
+#endif /* __x86_64__ || _M_X64 */

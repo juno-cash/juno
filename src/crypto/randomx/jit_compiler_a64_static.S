@@ -25,6 +25,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#if defined(__aarch64__)
 #if defined(__APPLE__)
 #define DECL(x) _##x
 #else
@@ -588,4 +589,7 @@ DECL(randomx_calc_dataset_item_aarch64_store_result):
 	ret
 
 DECL(randomx_calc_dataset_item_aarch64_end):
+
 #endif /* __aarch64__ */
+
+#endif /* outer __aarch64__ guard */
