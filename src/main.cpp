@@ -5298,10 +5298,7 @@ static bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state
         return true;
     }
 
-    if (!CheckBlockHeader(block, state, chainparams))
-        return false;
-
-    // Get prev block index
+    // Get prev block index BEFORE checking header so we can validate RandomX with correct seed
     CBlockIndex* pindexPrev = NULL;
     if (hash != chainparams.GetConsensus().hashGenesisBlock) {
         BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
@@ -5311,6 +5308,9 @@ static bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
             return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
     }
+
+    if (!CheckBlockHeader(block, state, chainparams, true, pindexPrev))
+        return false;
 
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev))
         return false;
