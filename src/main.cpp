@@ -5773,25 +5773,29 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
         // Genesis block has a branch ID of zero by definition, but has no
         // validity status because it is side-loaded into a fresh chain.
         // Activation blocks will have branch IDs set (read from disk).
-        // Juno Cash: nCachedBranchId is persisted for activation blocks (BLOCK_ACTIVATES_UPGRADE),
-        // but we set it here defensively to ensure correct values for all blocks,
-        // including databases created before proper genesis initialization (commit 7ce4b3056).
-        // In Juno, only genesis (height 0) is an activation height since all upgrades are ALWAYS_ACTIVE
+        // Juno Cash: Always set genesis to handle databases created before proper
+        // genesis initialization (commit 7ce4b3056). For other blocks, only set if
+        // not already loaded from disk (defensive).
         if (!pindex->pprev) {
-            // Genesis block: activates all upgrades from height 0
+            // Genesis: Always set to ensure correct value (like Zcash always sets SPROUT_BRANCH_ID)
             pindex->nCachedBranchId = CurrentEpochBranchId(0, chainparams.GetConsensus());
             pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
         } else if (IsActivationHeightForAnyUpgrade(pindex->nHeight, chainparams.GetConsensus())) {
-            // Activation block: gets new branch ID for this upgrade
-            pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, chainparams.GetConsensus());
-            pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
-        } else if (pindex->pprev->nCachedBranchId) {
-            // Normal block: inherits parent's branch ID
-            pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
-        } else {
-            // Fallback: parent doesn't have branch ID yet (shouldn't happen if blocks loaded in order)
-            // Calculate from height as last resort
-            pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, chainparams.GetConsensus());
+            // Activation block: Only set if not already loaded from disk
+            if (!pindex->nCachedBranchId) {
+                pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, chainparams.GetConsensus());
+                pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
+            }
+        } else if (pindex->pprev) {
+            // Non-activation block: inherit from parent if not already set
+            if (!pindex->nCachedBranchId) {
+                if (pindex->pprev->nCachedBranchId) {
+                    pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
+                } else {
+                    // Fallback: calculate from height
+                    pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, chainparams.GetConsensus());
+                }
+            }
         }
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL))
             setBlockIndexCandidates.insert(pindex);
