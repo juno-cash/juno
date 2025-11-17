@@ -3004,7 +3004,13 @@ static DisconnectResult DisconnectBlock(const CBlock& block, CValidationState& s
         view.PopAnchor(OrchardMerkleFrontier::empty_root(), ORCHARD);
     }
 
-    // This is guaranteed to be filled by LoadBlockIndex.
+    // This is guaranteed to be filled by LoadBlockIndex or ConnectBlock.
+    if (!pindex->nCachedBranchId) {
+        LogPrintf("ERROR: DisconnectBlock called with pindex->nCachedBranchId not set! Block %d (%s)\n",
+                 pindex->nHeight, pindex->GetBlockHash().GetHex());
+        LogPrintf("  pindex->nStatus = %d, BLOCK_ACTIVATES_UPGRADE = %s\n",
+                 pindex->nStatus, (pindex->nStatus & BLOCK_ACTIVATES_UPGRADE) ? "yes" : "no");
+    }
     assert(pindex->nCachedBranchId);
     auto consensusBranchId = pindex->nCachedBranchId.value();
 
@@ -3790,7 +3796,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
             pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, consensusParams);
         } else if (pindex->pprev) {
-            pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
+            // Juno Cash: nCachedBranchId is not persisted, so pprev might not have it set
+            // If pprev doesn't have it, calculate it from height
+            if (pindex->pprev->nCachedBranchId) {
+                pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
+            } else {
+                // Fallback: calculate from height (should match LoadBlockIndex logic)
+                pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, consensusParams);
+            }
         }
 
         pindex->RaiseValidity(BLOCK_VALID_SCRIPTS);
@@ -5760,17 +5773,23 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
         // Genesis block has a branch ID of zero by definition, but has no
         // validity status because it is side-loaded into a fresh chain.
         // Activation blocks will have branch IDs set (read from disk).
-        if (pindex->pprev) {
-            // Juno Cash: Set nCachedBranchId for all blocks, not just consensus-valid ones
-            // This ensures blocks loaded from disk have their branch ID set before validation checks
-            if (!pindex->nCachedBranchId) {
-                pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
-            }
-        } else {
-            // Juno Cash: Genesis activates all upgrades, so use the current epoch branch ID
-            // instead of SPROUT_BRANCH_ID. Also set the BLOCK_ACTIVATES_UPGRADE flag.
+        // Juno Cash: nCachedBranchId is not persisted to disk, so we must always
+        // recalculate it when loading blocks from disk
+        if (!pindex->pprev) {
+            // Genesis block: activates all upgrades from height 0
             pindex->nCachedBranchId = CurrentEpochBranchId(0, chainparams.GetConsensus());
             pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
+        } else if (IsActivationHeightForAnyUpgrade(pindex->nHeight, chainparams.GetConsensus())) {
+            // Activation block: gets new branch ID for this upgrade
+            pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, chainparams.GetConsensus());
+            pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
+        } else if (pindex->pprev->nCachedBranchId) {
+            // Normal block: inherits parent's branch ID
+            pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
+        } else {
+            // Fallback: parent doesn't have branch ID yet (shouldn't happen if blocks loaded in order)
+            // Calculate from height as last resort
+            pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, chainparams.GetConsensus());
         }
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL))
             setBlockIndexCandidates.insert(pindex);

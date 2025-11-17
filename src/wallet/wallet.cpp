@@ -2989,8 +2989,21 @@ void CWallet::DecrementNoteWitnesses(const Consensus::Params& consensus, const C
         // pindex->nHeight is the height of the block being removed, so we rewind
         // to the previous block height
         uint32_t uResultHeight{0};
+        LogPrintf("DecrementNoteWitnesses: Rewinding Orchard wallet from height %d to %d\n", pindex->nHeight, pindex->nHeight - 1);
+        if (pindex->nHeight < 1) {
+            LogPrintf("ERROR: Cannot rewind Orchard wallet - pindex->nHeight (%d) < 1\n", pindex->nHeight);
+        }
         assert(pindex->nHeight >= 1);
-        assert(orchardWallet.Rewind(pindex->nHeight - 1, uResultHeight));
+
+        bool rewindResult = orchardWallet.Rewind(pindex->nHeight - 1, uResultHeight);
+        if (!rewindResult) {
+            LogPrintf("ERROR: orchardWallet.Rewind(%d, ...) returned false\n", pindex->nHeight - 1);
+        }
+        assert(rewindResult);
+
+        if (uResultHeight != pindex->nHeight - 1) {
+            LogPrintf("ERROR: orchardWallet.Rewind expected height %d but got %d\n", pindex->nHeight - 1, uResultHeight);
+        }
         assert(uResultHeight == pindex->nHeight - 1);
         // If we have no checkpoints after the rewind, then the latest anchor of the
         // wallet's Orchard note commitment tree will be in an indeterminate state and it
@@ -2999,12 +3012,12 @@ void CWallet::DecrementNoteWitnesses(const Consensus::Params& consensus, const C
         auto walletLastCheckpointHeight = orchardWallet.GetLastCheckpointHeight();
         if (walletLastCheckpointHeight.has_value()) {
             if (pindex->pprev->hashFinalOrchardRoot != orchardWallet.GetLatestAnchor()) {
-                LogPrintf("WARNING: Orchard anchor mismatch during DecrementNoteWitnesses\n");
+                LogPrintf("ERROR: Orchard anchor mismatch during DecrementNoteWitnesses\n");
                 LogPrintf("  Block %d pprev anchor: %s\n", pindex->nHeight, pindex->pprev->hashFinalOrchardRoot.GetHex());
                 LogPrintf("  Wallet anchor: %s\n", orchardWallet.GetLatestAnchor().GetHex());
                 LogPrintf("  Wallet checkpoint height: %d\n", walletLastCheckpointHeight.value());
-                // Don't assert - just log the mismatch for now
             }
+            assert(pindex->pprev->hashFinalOrchardRoot == orchardWallet.GetLatestAnchor());
         }
     }
 
