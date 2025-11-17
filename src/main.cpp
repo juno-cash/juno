@@ -5070,7 +5070,9 @@ bool CheckBlock(const CBlock& block,
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, chainparams, fCheckPOW))
+    // For RandomX, we MUST skip POW validation here because we don't have pindexPrev,
+    // so we can't calculate the correct seed. POW is properly checked in AcceptBlockHeader.
+    if (!CheckBlockHeader(block, state, chainparams, false))  // fCheckPOW = false
         return false;
 
     // Check the merkle root.
