@@ -3796,8 +3796,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             pindex->nStatus |= BLOCK_ACTIVATES_UPGRADE;
             pindex->nCachedBranchId = CurrentEpochBranchId(pindex->nHeight, consensusParams);
         } else if (pindex->pprev) {
-            // Juno Cash: nCachedBranchId is not persisted, so pprev might not have it set
-            // If pprev doesn't have it, calculate it from height
+            // Juno Cash: pprev might not have nCachedBranchId set if it was just loaded
+            // from disk (LoadBlockIndex sets it, but ConnectBlock might run first on restart)
             if (pindex->pprev->nCachedBranchId) {
                 pindex->nCachedBranchId = pindex->pprev->nCachedBranchId;
             } else {
@@ -5773,8 +5773,10 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
         // Genesis block has a branch ID of zero by definition, but has no
         // validity status because it is side-loaded into a fresh chain.
         // Activation blocks will have branch IDs set (read from disk).
-        // Juno Cash: nCachedBranchId is not persisted to disk, so we must always
-        // recalculate it when loading blocks from disk
+        // Juno Cash: nCachedBranchId is persisted for activation blocks (BLOCK_ACTIVATES_UPGRADE),
+        // but we set it here defensively to ensure correct values for all blocks,
+        // including databases created before proper genesis initialization (commit 7ce4b3056).
+        // In Juno, only genesis (height 0) is an activation height since all upgrades are ALWAYS_ACTIVE
         if (!pindex->pprev) {
             // Genesis block: activates all upgrades from height 0
             pindex->nCachedBranchId = CurrentEpochBranchId(0, chainparams.GetConsensus());
