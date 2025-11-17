@@ -15,6 +15,7 @@
 #include "primitives/block.h"
 #include "streams.h"
 #include "uint256.h"
+#include "util/system.h"
 
 #include <librustzcash.h>
 // Juno Cash: Legacy Equihash includes - kept for reference
@@ -158,16 +159,28 @@ bool CheckRandomXSolution(const CBlockHeader *pblock, const Consensus::Params& p
         // Calculate RandomX hash with specific seed
         uint256 hash;
         if (!RandomX_Hash_WithSeed(seedHash.begin(), 32, ss.data(), ss.size(), hash.begin())) {
+            LogPrintf("CheckRandomXSolution: RandomX_Hash_WithSeed failed for height %d\n", blockHeight);
             return false;
         }
 
         // Verify stored solution matches calculated hash
-        if (pblock->nSolution.size() != 32) return false;
+        if (pblock->nSolution.size() != 32) {
+            LogPrintf("CheckRandomXSolution: Invalid solution size %d for height %d\n", pblock->nSolution.size(), blockHeight);
+            return false;
+        }
 
         uint256 storedHash;
         memcpy(storedHash.begin(), pblock->nSolution.data(), 32);
 
-        return hash == storedHash;
+        bool match = (hash == storedHash);
+        if (!match) {
+            LogPrintf("CheckRandomXSolution: Hash mismatch at height %d\n", blockHeight);
+            LogPrintf("  Seed height: %d, Seed hash: %s\n", seedHeight, seedHash.GetHex());
+            LogPrintf("  Input size: %d bytes\n", ss.size());
+            LogPrintf("  Calculated: %s\n", hash.GetHex());
+            LogPrintf("  Stored:     %s\n", storedHash.GetHex());
+        }
+        return match;
     } else {
         // No pindexPrev - use current main seed (for mining/mempool)
         uint256 hash;
