@@ -1,3 +1,5 @@
+// Copyright (c) 2025 The Juno Cash developers
+
 #include "asyncrpcoperation_common.h"
 
 #include "core_io.h"
@@ -201,7 +203,7 @@ void ThrowInputSelectionError(
                 RPC_INVALID_PARAMETER,
                 strprintf(
                     "Fee (%s) is greater than the maximum fee allowed by this instance (%s). Run "
-                    "zcashd with `-maxtxfee` to adjust this limit.",
+                    "junocashd with `-maxtxfee` to adjust this limit.",
                     DisplayMoney(err.fixedFee),
                     DisplayMoney(maxTxFee)));
         },
