@@ -1,6 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2019-2023 The Zcash developers
+// Copyright (c) 2025 The Juno Cash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -284,11 +285,11 @@ UniValue stop(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "stop\n"
-            "\nStop Zcash server.");
+            "\nStop Juno Cash server.");
     // Event loop will exit after current HTTP requests have been handled, so
     // this reply will get back to the client.
     StartShutdown();
-    return "Zcash server stopping";
+    return "Juno Cash server stopping";
 }
 
 /**
@@ -541,7 +542,7 @@ std::vector<std::string> CRPCTable::listCommands() const
 
 std::string HelpExampleCli(const std::string& methodname, const std::string& args)
 {
-    return "> zcash-cli " + methodname + " " + args + "\n";
+    return "> junocash-cli " + methodname + " " + args + "\n";
 }
 
 std::string HelpExampleRpc(const std::string& methodname, const std::string& args)
@@ -572,9 +573,9 @@ std::string experimentalDisabledHelpMsg(const std::string& rpc, const std::vecto
         }
     }
     return "\nWARNING: " + rpc + " is disabled.\n" +
-        "To enable it, restart zcashd with the following command line options:\n"
+        "To enable it, restart junocashd with the following command line options:\n"
         + cmd + "\n\n" +
-        "Alternatively add these two lines to the zcash.conf file:\n\n"
+        "Alternatively add these two lines to the junocashd.conf file:\n\n"
         + config;
 }
 
