@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2015-2023 The Zcash developers
+// Copyright (c) 2025 The Juno Cash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -142,7 +143,7 @@ static void CheckBlockIndex(const Consensus::Params& consensusParams);
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
 
-const string strMessageMagic = "Zcash Signed Message:\n";
+const string strMessageMagic = "Juno Cash Signed Message:\n";
 
 // Internal stuff
 namespace {
@@ -976,7 +977,7 @@ bool ContextualCheckTransaction(
             int expiredDosLevel = IsExpiredTx(tx, nHeight - 1) ? dosLevelConstricting : 0;
             return state.DoS(
                     expiredDosLevel,
-                    error("ContextualCheckTransaction(): transaction is expired. Resending when caught up with the blockchain, or manually setting the zcashd txexpirydelta parameter may help."),
+                    error("ContextualCheckTransaction(): transaction is expired. Resending when caught up with the blockchain, or manually setting the junocashd txexpirydelta parameter may help."),
                     REJECT_INVALID, "tx-overwinter-expired");
         }
 
