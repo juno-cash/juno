@@ -501,7 +501,7 @@ fn run(opts: &CliOptions) -> anyhow::Result<()> {
         })
         .inspect_err(|_| {
             println!(concat!(
-                "\nzcash-wallet-tool was unable to communicate to junocashd that the\n",
+                "\njunocash-wallet-tool was unable to communicate to junocashd that the\n",
                 "backup was confirmed. This can happen if junocashd stopped, in which\n",
                 "case you should try again. If junocashd is still running, please seek\n",
                 "help or try to use 'junocash-cli -stdin walletconfirmbackup' manually.\n"
