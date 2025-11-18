@@ -1,6 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2019-2023 The Zcash developers
+// Copyright (c) 2025 The Juno Cash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -509,7 +510,7 @@ UniValue getblockdeltas(const UniValue& params, bool fHelp)
 
     if (!(fExperimentalInsightExplorer || fExperimentalLightWalletd)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Error: getblockdeltas is disabled. "
-            "Run './zcash-cli help getblockdeltas' for instructions on how to enable this feature.");
+            "Run './junocash-cli help getblockdeltas' for instructions on how to enable this feature.");
     }
 
     std::string strHash = params[0].get_str();
@@ -572,7 +573,7 @@ UniValue getblockhashes(const UniValue& params, bool fHelp)
 
     if (!(fExperimentalInsightExplorer || fExperimentalLightWalletd)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Error: getblockhashes is disabled. "
-            "Run './zcash-cli help getblockhashes' for instructions on how to enable this feature.");
+            "Run './junocash-cli help getblockhashes' for instructions on how to enable this feature.");
     }
 
     unsigned int high = params[0].get_int();
@@ -911,8 +912,8 @@ UniValue gettxout(const UniValue& params, bool fHelp)
             "     \"hex\" : \"hex\",        (string) \n"
             "     \"reqSigs\" : n,          (numeric) Number of required signatures\n"
             "     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n"
-            "     \"addresses\" : [          (array of string) array of Zcash addresses\n"
-            "        \"zcashaddress\"        (string) Zcash address\n"
+            "     \"addresses\" : [          (array of string) array of Juno Cash addresses\n"
+            "        \"junocashaddress\"        (string) Juno Cash address\n"
             "        ,...\n"
             "     ]\n"
             "  },\n"
@@ -1490,7 +1491,7 @@ UniValue z_getsubtreesbyindex(const UniValue& params, bool fHelp)
 
     if (!fExperimentalLightWalletd) {
         throw JSONRPCError(RPC_MISC_ERROR, "Error: z_getsubtreesbyindex is disabled. "
-            "Run './zcash-cli help z_getsubtreesbyindex' for instructions on how to enable this feature.");
+            "Run './junocash-cli help z_getsubtreesbyindex' for instructions on how to enable this feature.");
     }
 
     auto strPool = params[0].get_str();
