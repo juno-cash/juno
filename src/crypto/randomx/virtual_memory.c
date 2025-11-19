@@ -62,8 +62,11 @@ static int MacOSchecked, MacOSver;
  * When cross-compiling, the library containing this function doesn't exist,
  * and linking will fail because the symbol is unresolved. The function here
  * is a quick and dirty hack to get close enough to identify MacOSX 11.0.
+ * Note: Function name has triple underscore prefix for compatibility with
+ * newer clang versions that use __isPlatformVersionAtLeast instead of
+ * __isOSVersionAtLeast.
  */
-static int32_t __isOSVersionAtLeast(int32_t major, int32_t minor, int32_t subminor) {
+int32_t __isPlatformVersionAtLeast(int32_t major, int32_t minor, int32_t subminor) {
 	if (!MacOSchecked) {
 	    struct utsname ut;
 		int mmaj, mmin;

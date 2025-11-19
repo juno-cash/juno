@@ -935,28 +935,38 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <xmmintrin.h>]], [[
  [ AC_MSG_RESULT(no); HAVE_MM_PREFETCH=0 ]
 )
 
-AC_MSG_CHECKING(for strong getauxval support in the system headers)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-    #include <arm_acle.h>
-    #include <arm_neon.h>
-    #include <sys/auxv.h>
-  ]], [[
-    getauxval(AT_HWCAP);
-  ]])],
- [ AC_MSG_RESULT(yes); HAVE_STRONG_GETAUXVAL=1 ],
- [ AC_MSG_RESULT(no); HAVE_STRONG_GETAUXVAL=0 ]
-)
+dnl getauxval is a Linux-specific function, skip checks for macOS/Darwin
+if test x$TARGET_OS = xdarwin; then
+  AC_MSG_CHECKING(for strong getauxval support in the system headers)
+  AC_MSG_RESULT(no - skipped for darwin)
+  HAVE_STRONG_GETAUXVAL=0
+  AC_MSG_CHECKING(for weak getauxval support in the compiler)
+  AC_MSG_RESULT(no - skipped for darwin)
+  HAVE_WEAK_GETAUXVAL=0
+else
+  AC_MSG_CHECKING(for strong getauxval support in the system headers)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+      #include <arm_acle.h>
+      #include <arm_neon.h>
+      #include <sys/auxv.h>
+    ]], [[
+      getauxval(AT_HWCAP);
+    ]])],
+   [ AC_MSG_RESULT(yes); HAVE_STRONG_GETAUXVAL=1 ],
+   [ AC_MSG_RESULT(no); HAVE_STRONG_GETAUXVAL=0 ]
+  )
 
-AC_MSG_CHECKING(for weak getauxval support in the compiler)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-    unsigned long getauxval(unsigned long type) __attribute__((weak));
-    #define AT_HWCAP 16
-  ]], [[
-    getauxval(AT_HWCAP);
-  ]])],
- [ AC_MSG_RESULT(yes); HAVE_WEAK_GETAUXVAL=1 ],
- [ AC_MSG_RESULT(no); HAVE_WEAK_GETAUXVAL=0 ]
-)
+  AC_MSG_CHECKING(for weak getauxval support in the compiler)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+      unsigned long getauxval(unsigned long type) __attribute__((weak));
+      #define AT_HWCAP 16
+    ]], [[
+      getauxval(AT_HWCAP);
+    ]])],
+   [ AC_MSG_RESULT(yes); HAVE_WEAK_GETAUXVAL=1 ],
+   [ AC_MSG_RESULT(no); HAVE_WEAK_GETAUXVAL=0 ]
+  )
+fi
 
 dnl Check for reduced exports
 if test x$use_reduce_exports = xyes; then
