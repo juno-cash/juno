@@ -21,8 +21,14 @@ $(package)_version_freebsd=14.0.6
 # platform, we permit an older LLVM version to be used. This means the version
 # of LLVM used in Clang and Rust will differ on these platforms, preventing LTO
 # from working.
+# When cross-compiling, use the version for the BUILD platform (not target).
+ifeq ($(canonical_host),$(build))
 $(package)_version=$(if $($(package)_version_$(host_arch)_$(host_os)),$($(package)_version_$(host_arch)_$(host_os)),$(if $($(package)_version_$(host_os)),$($(package)_version_$(host_os)),$($(package)_default_version)))
 $(package)_major_version=$(if $($(package)_major_version_$(host_arch)_$(host_os)),$($(package)_major_version_$(host_arch)_$(host_os)),$(if $($(package)_major_version_$(host_os)),$($(package)_major_version_$(host_os)),$($(package)_default_major_version)))
+else
+$(package)_version=$(if $($(package)_version_$(build_os)),$($(package)_version_$(build_os)),$($(package)_default_version))
+$(package)_major_version=$(if $($(package)_major_version_$(build_os)),$($(package)_major_version_$(build_os)),$($(package)_default_major_version))
+endif
 
 $(package)_download_path_linux=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_version)
 $(package)_download_file_linux=clang+llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
