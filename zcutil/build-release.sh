@@ -251,7 +251,7 @@ build_platform() {
     print_info "Configuring JunoCash for $PLATFORM_NAME..."
     ./zcutil/clean.sh || true
     ./autogen.sh
-    CONFIG_SITE="$PWD/depends/$HOST_TRIPLET/share/config.site" ./configure --quiet
+    CONFIG_SITE="$PWD/depends/$HOST_TRIPLET/share/config.site" ./configure --quiet --disable-tests
 
     print_info "Building JunoCash for $PLATFORM_NAME..."
     make -j"$JOBS"
