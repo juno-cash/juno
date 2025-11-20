@@ -2,7 +2,7 @@
 linker = "aarch64-linux-gnu-gcc"
 
 [target.aarch64-apple-darwin]
-linker = "depends/aarch64-apple-darwin/native/bin/aarch64-apple-darwin-cc"
+linker = "clang"
 
 [source.crates-io]
 replace-with = "vendored-sources"
