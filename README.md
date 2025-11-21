@@ -1,5 +1,4 @@
 Juno Cash
-<img align="right" width="120" height="80" src="doc/imgs/logo.png">
 ===========
 
 What is Juno Cash?
