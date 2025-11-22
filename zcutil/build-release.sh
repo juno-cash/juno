@@ -28,11 +28,17 @@ JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 RELEASE_DIR="${REPO_ROOT}/release"
 SDK_PATH="${REPO_ROOT}/depends/SDKs"
 
-# Version detection
-VERSION=$(grep "define(_CLIENT_VERSION_MAJOR" "${REPO_ROOT}/configure.ac" | sed 's/[^0-9]*//g' || echo "unknown")
-VERSION_MINOR=$(grep "define(_CLIENT_VERSION_MINOR" "${REPO_ROOT}/configure.ac" | sed 's/[^0-9]*//g' || echo "0")
-VERSION_BUILD=$(grep "define(_CLIENT_VERSION_BUILD" "${REPO_ROOT}/configure.ac" | sed 's/[^0-9]*//g' || echo "0")
-FULL_VERSION="${VERSION}.${VERSION_MINOR}.${VERSION_BUILD}"
+# Version detection - use PACKAGE_VERSION from generated config if available
+if [ -f "${REPO_ROOT}/src/config/bitcoin-config.h" ]; then
+    FULL_VERSION=$(grep "^#define PACKAGE_VERSION" "${REPO_ROOT}/src/config/bitcoin-config.h" | sed 's/.*"\(.*\)".*/\1/' || echo "unknown")
+fi
+# Fallback: calculate version from configure.ac defines
+if [ -z "$FULL_VERSION" ] || [ "$FULL_VERSION" = "unknown" ]; then
+    VERSION=$(grep "define(_CLIENT_VERSION_MAJOR" "${REPO_ROOT}/configure.ac" | sed 's/[^0-9]*//g' || echo "0")
+    VERSION_MINOR=$(grep "define(_CLIENT_VERSION_MINOR" "${REPO_ROOT}/configure.ac" | sed 's/[^0-9]*//g' || echo "0")
+    VERSION_REVISION=$(grep "define(_CLIENT_VERSION_REVISION" "${REPO_ROOT}/configure.ac" | sed 's/[^0-9]*//g' || echo "0")
+    FULL_VERSION="${VERSION}.${VERSION_MINOR}.${VERSION_REVISION}"
+fi
 
 # Print functions
 print_info() {
