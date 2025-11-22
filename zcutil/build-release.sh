@@ -367,6 +367,12 @@ CONFEOF
     fi
 
     # Generate SHA256 checksum
+    # Remove old checksum for this file if it exists
+    if [ -f "SHA256SUMS.txt" ]; then
+        grep -v "$(basename "$ARCHIVE_NAME")" "SHA256SUMS.txt" > "SHA256SUMS.txt.tmp" 2>/dev/null || true
+        mv "SHA256SUMS.txt.tmp" "SHA256SUMS.txt"
+    fi
+    # Add new checksum
     if command -v sha256sum >/dev/null 2>&1; then
         sha256sum "$ARCHIVE_NAME" >> "SHA256SUMS.txt"
     elif command -v shasum >/dev/null 2>&1; then
@@ -389,9 +395,8 @@ main() {
     check_prerequisites
     clean_build
 
-    # Create/clear release directory
+    # Create release directory (preserve existing SHA256SUMS.txt)
     mkdir -p "$RELEASE_DIR"
-    rm -f "$RELEASE_DIR/SHA256SUMS.txt"
 
     build_all_platforms
 
