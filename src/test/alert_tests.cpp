@@ -164,20 +164,20 @@ void GenerateAlertTests()
     SignAndSerialize(alert, sBuffer);
 
     // More tests go here ...
-    alert.setSubVer.insert(std::string("/MagicBean:0.1.0/"));
-    alert.strStatusBar  = "Alert 1 for MagicBean 0.1.0";
+    alert.setSubVer.insert(std::string("/JunoCash:0.1.0/"));
+    alert.strStatusBar  = "Alert 1 for JunoCash 0.1.0";
     SignAndSerialize(alert, sBuffer);
 
-    alert.setSubVer.insert(std::string("/MagicBean:0.2.0/"));
-    alert.strStatusBar  = "Alert 1 for MagicBean 0.1.0, 0.2.0";
+    alert.setSubVer.insert(std::string("/JunoCash:0.2.0/"));
+    alert.strStatusBar  = "Alert 1 for JunoCash 0.1.0, 0.2.0";
     SignAndSerialize(alert, sBuffer);
 
-    alert.setSubVer.insert(std::string("/MagicBean:0.2.1(foo)/"));
-    alert.strStatusBar  = "Alert 1 for MagicBean 0.1.0, 0.2.0, 0.2.1(foo)";
+    alert.setSubVer.insert(std::string("/JunoCash:0.2.1(foo)/"));
+    alert.strStatusBar  = "Alert 1 for JunoCash 0.1.0, 0.2.0, 0.2.1(foo)";
     SignAndSerialize(alert, sBuffer);
 
-    alert.setSubVer.insert(std::string("/MagicBean:0.2.1/"));
-    alert.strStatusBar  = "Alert 1 for MagicBean 0.1.0, 0.2.0, 0.2.1(foo), 0.2.1";
+    alert.setSubVer.insert(std::string("/JunoCash:0.2.1/"));
+    alert.strStatusBar  = "Alert 1 for JunoCash 0.1.0, 0.2.0, 0.2.1(foo), 0.2.1";
     SignAndSerialize(alert, sBuffer);
 
     alert.setSubVer.clear();
@@ -210,8 +210,8 @@ void GenerateAlertTests()
     SignAndSerialize(alert, sBuffer);
 
     ++alert.nID;
-    alert.strStatusBar  = "Alert 2 for MagicBean 0.1.0";
-    alert.setSubVer.insert(std::string("/MagicBean:0.1.0/"));
+    alert.strStatusBar  = "Alert 2 for JunoCash 0.1.0";
+    alert.setSubVer.insert(std::string("/JunoCash:0.1.0/"));
     SignAndSerialize(alert, sBuffer);
 
     ++alert.nID;
@@ -303,45 +303,45 @@ BOOST_AUTO_TEST_CASE(AlertApplies)
     // Matches:
     BOOST_CHECK(alerts[0].AppliesTo(1, ""));
     BOOST_CHECK(alerts[0].AppliesTo(999001, ""));
-    BOOST_CHECK(alerts[0].AppliesTo(1, "/MagicBean:11.11.11/"));
+    BOOST_CHECK(alerts[0].AppliesTo(1, "/JunoCash:11.11.11/"));
 
-    BOOST_CHECK(alerts[1].AppliesTo(1, "/MagicBean:0.1.0/"));
-    BOOST_CHECK(alerts[1].AppliesTo(999001, "/MagicBean:0.1.0/"));
+    BOOST_CHECK(alerts[1].AppliesTo(1, "/JunoCash:0.1.0/"));
+    BOOST_CHECK(alerts[1].AppliesTo(999001, "/JunoCash:0.1.0/"));
 
-    BOOST_CHECK(alerts[2].AppliesTo(1, "/MagicBean:0.1.0/"));
-    BOOST_CHECK(alerts[2].AppliesTo(1, "/MagicBean:0.2.0/"));
-    BOOST_CHECK(alerts[2].AppliesTo(1, "/MagicBean:0.2.0(foo)/"));
-    BOOST_CHECK(alerts[2].AppliesTo(1, "/MagicBean:0.2.0(bar)/"));
+    BOOST_CHECK(alerts[2].AppliesTo(1, "/JunoCash:0.1.0/"));
+    BOOST_CHECK(alerts[2].AppliesTo(1, "/JunoCash:0.2.0/"));
+    BOOST_CHECK(alerts[2].AppliesTo(1, "/JunoCash:0.2.0(foo)/"));
+    BOOST_CHECK(alerts[2].AppliesTo(1, "/JunoCash:0.2.0(bar)/"));
 
-    BOOST_CHECK(alerts[3].AppliesTo(1, "/MagicBean:0.1.0/"));
-    BOOST_CHECK(alerts[3].AppliesTo(1, "/MagicBean:0.2.0/"));
-    BOOST_CHECK(alerts[2].AppliesTo(1, "/MagicBean:0.2.0(foo)/"));
-    BOOST_CHECK(alerts[3].AppliesTo(1, "/MagicBean:0.2.1(foo)/"));
+    BOOST_CHECK(alerts[3].AppliesTo(1, "/JunoCash:0.1.0/"));
+    BOOST_CHECK(alerts[3].AppliesTo(1, "/JunoCash:0.2.0/"));
+    BOOST_CHECK(alerts[2].AppliesTo(1, "/JunoCash:0.2.0(foo)/"));
+    BOOST_CHECK(alerts[3].AppliesTo(1, "/JunoCash:0.2.1(foo)/"));
 
-    BOOST_CHECK(alerts[4].AppliesTo(1, "/MagicBean:0.1.0/"));
-    BOOST_CHECK(alerts[4].AppliesTo(1, "/MagicBean:0.2.0/"));
-    BOOST_CHECK(alerts[4].AppliesTo(1, "/MagicBean:0.2.1(foo)/"));
-    BOOST_CHECK(alerts[4].AppliesTo(1, "/MagicBean:0.2.1/"));
+    BOOST_CHECK(alerts[4].AppliesTo(1, "/JunoCash:0.1.0/"));
+    BOOST_CHECK(alerts[4].AppliesTo(1, "/JunoCash:0.2.0/"));
+    BOOST_CHECK(alerts[4].AppliesTo(1, "/JunoCash:0.2.1(foo)/"));
+    BOOST_CHECK(alerts[4].AppliesTo(1, "/JunoCash:0.2.1/"));
 
     // Don't match:
     BOOST_CHECK(!alerts[0].AppliesTo(-1, ""));
     BOOST_CHECK(!alerts[0].AppliesTo(999002, ""));
 
     BOOST_CHECK(!alerts[1].AppliesTo(1, ""));
-    BOOST_CHECK(!alerts[1].AppliesTo(1, "MagicBean:0.1.0"));
-    BOOST_CHECK(!alerts[1].AppliesTo(1, "/MagicBean:0.1.0"));
-    BOOST_CHECK(!alerts[1].AppliesTo(1, "MagicBean:0.1.0/"));
-    BOOST_CHECK(!alerts[1].AppliesTo(-1, "/MagicBean:0.1.0/"));
-    BOOST_CHECK(!alerts[1].AppliesTo(999002, "/MagicBean:0.1.0/"));
-    BOOST_CHECK(!alerts[1].AppliesTo(1, "/MagicBean:0.1.0/FlowerPot:0.0.1/"));
-    BOOST_CHECK(!alerts[1].AppliesTo(1, "/MagicBean:0.2.0/"));
+    BOOST_CHECK(!alerts[1].AppliesTo(1, "JunoCash:0.1.0"));
+    BOOST_CHECK(!alerts[1].AppliesTo(1, "/JunoCash:0.1.0"));
+    BOOST_CHECK(!alerts[1].AppliesTo(1, "JunoCash:0.1.0/"));
+    BOOST_CHECK(!alerts[1].AppliesTo(-1, "/JunoCash:0.1.0/"));
+    BOOST_CHECK(!alerts[1].AppliesTo(999002, "/JunoCash:0.1.0/"));
+    BOOST_CHECK(!alerts[1].AppliesTo(1, "/JunoCash:0.1.0/FlowerPot:0.0.1/"));
+    BOOST_CHECK(!alerts[1].AppliesTo(1, "/JunoCash:0.2.0/"));
 
     // SubVer with comment doesn't match SubVer pattern without
-    BOOST_CHECK(!alerts[2].AppliesTo(1, "/MagicBean:0.2.1/"));
-    BOOST_CHECK(!alerts[2].AppliesTo(1, "/MagicBean:0.3.0/"));
+    BOOST_CHECK(!alerts[2].AppliesTo(1, "/JunoCash:0.2.1/"));
+    BOOST_CHECK(!alerts[2].AppliesTo(1, "/JunoCash:0.3.0/"));
 
     // SubVer without comment doesn't match SubVer pattern with
-    BOOST_CHECK(!alerts[3].AppliesTo(1, "/MagicBean:0.2.1/"));
+    BOOST_CHECK(!alerts[3].AppliesTo(1, "/JunoCash:0.2.1/"));
 
     SystemClock::SetGlobal();
 }
