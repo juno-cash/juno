@@ -65,4 +65,4 @@ Please file bug reports and feature requests in the Issue tracker on Github.
 License
 -------
 
-For license information see the file [COPYING](COPYING).
+For license information see the file [LICENSE](LICENSE).
