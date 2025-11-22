@@ -176,7 +176,7 @@ public:
         // Juno Cash: No funding streams (0% dev tax)
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x3930dd6");
+        consensus.nMinimumChainWork = uint256S("0x1f4e3583");
 
         /**
          * Network magic bytes for Juno Cash - derived from Bitcoin block 919123 hash
@@ -185,7 +185,7 @@ public:
         pchMessageStart[1] = 0x0c;
         pchMessageStart[2] = 0x07;
         pchMessageStart[3] = 0x02;
-        vAlertPubKey = ParseHex("04b7ecf0baa90495ceb4e4090f6b2fd37eec1e9c85fac68a487f3ce11589692e4a317479316ee814e066638e1db54e37a10689b70286e6315b1087b6615d179264");
+        vAlertPubKey = ParseHex("042c66363e6bd947c72c64878822b3bb114f7b98da8d6e825ec5a575ebfd2a9bbe36e99af2fcbf340f65410da22d2e0e08ae685776b58bd1508b417ac9b61c3da9");
         nDefaultPort = 8234;
         nPruneAfterHeight = 100000;
 
@@ -342,13 +342,13 @@ public:
         consensus.nFutureTimestampSoftForkHeight = consensus.vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight + 6;
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0xb5a314");
+        consensus.nMinimumChainWork = uint256S("0x24cad43");
 
         pchMessageStart[0] = 0xa7;
         pchMessageStart[1] = 0x23;
         pchMessageStart[2] = 0xe1;
         pchMessageStart[3] = 0x6c;
-        vAlertPubKey = ParseHex("044e7a1553392325c871c5ace5d6ad73501c66f4c185d6b0453cf45dec5a1322e705c672ac1a27ef7cdaf588c10effdf50ed5f95f85f2f54a5f6159fca394ed0c6");
+        vAlertPubKey = ParseHex("048abb146dca9b466d2b5cf82c7582590d4dc376693613804a85dc252ab64e649b3df9b8386bce20f73a6a1de706ce26c815558d1fe8fae1c851bfc7f5453e4d22");
         nDefaultPort = 18234;
         nPruneAfterHeight = 1000;
 
